@@ -1,5 +1,7 @@
 <script setup>
-import { currentUser } from '../data/mock'
+import { useAuth } from '../composables/useAuth'
+
+const { user } = useAuth()
 </script>
 
 <template>
@@ -29,8 +31,9 @@ import { currentUser } from '../data/mock'
         <span class="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full"></span>
       </router-link>
 
-      <router-link to="/profile" class="w-8 h-8 rounded-full overflow-hidden border-2 border-transparent hover:border-primary transition-colors">
-        <img :src="currentUser.avatar" alt="User Avatar" class="w-full h-full object-cover">
+      <router-link to="/profile" class="w-8 h-8 rounded-full overflow-hidden border-2 border-transparent hover:border-primary transition-colors bg-surface flex items-center justify-center">
+        <img v-if="user?.avatar_url" :src="user.avatar_url" alt="User Avatar" class="w-full h-full object-cover">
+        <span v-else class="material-symbols-rounded text-gray-400 text-lg">person</span>
       </router-link>
     </div>
   </header>

@@ -1,13 +1,22 @@
 <script setup>
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { useAuth } from '../composables/useAuth'
 
 const route = useRoute()
+const router = useRouter()
+const { logout } = useAuth()
+
 const navItems = [
   { name: 'Home', path: '/', icon: 'home' },
   { name: 'Explore', path: '/explore', icon: 'explore' },
   { name: 'Notifications', path: '/notifications', icon: 'notifications' },
   { name: 'Profile', path: '/profile', icon: 'person' },
 ]
+
+async function handleLogout() {
+  await logout()
+  router.push('/login')
+}
 </script>
 
 <template>
@@ -36,10 +45,10 @@ const navItems = [
     </div>
     
     <div class="mt-auto">
-      <router-link to="/login" class="flex items-center gap-4 px-4 py-3 text-gray-400 hover:text-white transition-colors">
+      <button @click="handleLogout" class="flex items-center gap-4 px-4 py-3 text-gray-400 hover:text-white transition-colors w-full">
         <span class="material-symbols-rounded">logout</span>
         <span class="text-lg">Sign Out</span>
-      </router-link>
+      </button>
     </div>
   </nav>
 </template>

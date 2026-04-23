@@ -5,6 +5,7 @@ import CreatePostView from '../views/CreatePostView.vue'
 import ProfileView from '../views/ProfileView.vue'
 import NotificationsView from '../views/NotificationsView.vue'
 import LoginView from '../views/LoginView.vue'
+import RegisterView from '../views/RegisterView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -13,34 +14,66 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginView,
-      meta: { hideNavigation: true }
+      meta: { hideNavigation: true, guest: true }
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: RegisterView,
+      meta: { hideNavigation: true, guest: true }
     },
     {
       path: '/',
       name: 'home',
-      component: HomeView
+      component: HomeView,
+      meta: { requiresAuth: true }
     },
     {
       path: '/explore',
       name: 'explore',
-      component: ExploreView
+      component: ExploreView,
+      meta: { requiresAuth: true }
     },
     {
       path: '/create',
       name: 'create',
-      component: CreatePostView
+      component: CreatePostView,
+      meta: { requiresAuth: true }
     },
     {
       path: '/profile',
       name: 'profile',
-      component: ProfileView
+      component: ProfileView,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/profile/:username',
+      name: 'user-profile',
+      component: ProfileView,
+      meta: { requiresAuth: true }
     },
     {
       path: '/notifications',
       name: 'notifications',
-      component: NotificationsView
+      component: NotificationsView,
+      meta: { requiresAuth: true }
     }
   ]
+})
+
+// Navigation guards
+router.beforeEach((to) => {
+  const token = localStorage.getItem('auth_token')
+
+  // Redirect to login if trying to access a protected route without auth
+  if (to.meta.requiresAuth && !token) {
+    return { name: 'login', query: { redirect: to.fullPath } }
+  }
+
+  // Redirect to home if trying to access guest-only routes while authenticated
+  if (to.meta.guest && token) {
+    return { name: 'home' }
+  }
 })
 
 export default router

@@ -1,84 +1,928 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { currentUser, exploreGrid } from '../data/mock'
-import ArtGrid from '../components/ArtGrid.vue'
+import { useAuth } from '../composables/useAuth'
+import { users, posts, follow } from '../services/api'
 
 const route = useRoute()
-const username = computed(() => route.query.user || currentUser.username)
-// Mock user profile loading (just using currentUser for demo)
-const profile = currentUser
+const { user: authUser } = useAuth()
+
+// ─── State ───────────────────────────────────────────────
+const activeTab = ref('recent')
+const isWatching = ref(false)
+const isLoading = ref(true)
+const headerVisible = ref(false)
+const statsAnimated = ref(false)
+const animatedWatchers = ref(0)
+const animatedDeviations = ref(0)
+const animatedViews = ref(0)
+const showBanner = ref(false)
+const showAvatar = ref(false)
+const showMeta = ref(false)
+const showStats = ref(false)
+const showTabs = ref(false)
+const showGrid = ref(false)
+const showSidebar = ref(false)
+
+// ─── Profile Data (populated from API) ────────────────────
+const profile = ref({
+  id: null,
+  username: '',
+  name: '',
+  bio: '',
+  avatar_url: null,
+  created_at: '',
+  followers_count: 0,
+  following_count: 0,
+  posts_count: 0,
+  bannerGradient: 'linear-gradient(135deg, #0a0b10 0%, #0d1a10 40%, #071510 70%, #0a0b10 100%)',
+})
+
+// Posts loaded from API
+const userPosts = ref([])
+const postsPage = ref(1)
+const postsLastPage = ref(1)
+const postsLoading = ref(false)
+
+// Activity (derived from recent posts)
+const activity = ref([])
+
+// Comments (kept client-side for now — API comments are per-post, not per-profile)
+const comments = ref([])
+const newComment = ref('')
+
+const tabs = [
+  { key: 'recent', label: 'RECENT ART' },
+  { key: 'collections', label: 'COLLECTIONS' },
+  { key: 'about', label: 'ABOUT' },
+]
+
+// ─── Computed ─────────────────────────────────────────────
+const profileUsername = computed(() => route.params.username || route.query.user || authUser.value?.username)
+
+const isOwnProfile = computed(() => {
+  if (!authUser.value || !profile.value.id) return false
+  return authUser.value.id === profile.value.id
+})
+
+const formattedJoinDate = computed(() => {
+  if (!profile.value.created_at) return ''
+  const d = new Date(profile.value.created_at)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase()
+})
+
+// Grid layout spans for posts
+const spanPatterns = ['large', 'tall', 'normal', 'normal', 'wide', 'normal', 'normal', 'wide']
+
+const galleryItems = computed(() => {
+  return userPosts.value.map((post, i) => ({
+    id: post.id,
+    image_url: post.image_url,
+    caption: post.caption,
+    span: spanPatterns[i % spanPatterns.length],
+  }))
+})
+
+function formatNumber(n) {
+  if (!n) return '0'
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
+  return n.toString()
+}
+
+// ─── API: Load profile ────────────────────────────────────
+async function loadProfile() {
+  const username = profileUsername.value
+  if (!username) return
+
+  isLoading.value = true
+
+  try {
+    const userData = await users.getProfile(username)
+
+    profile.value = {
+      ...profile.value,
+      id: userData.id,
+      username: userData.username || userData.name,
+      name: userData.name,
+      bio: userData.bio || '',
+      avatar_url: userData.avatar_url,
+      created_at: userData.created_at,
+      followers_count: 0,
+      following_count: 0,
+      posts_count: 0,
+    }
+
+    // Load posts (also gives us total count)
+    await loadPosts(true)
+
+    // Load followers/following counts
+    await loadFollowCounts(userData.id)
+
+    // Check follow status if not own profile
+    if (!isOwnProfile.value) {
+      await checkFollowStatus(userData.id)
+    }
+
+  } catch (e) {
+    console.error('Failed to load profile:', e)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// ─── API: Load posts ──────────────────────────────────────
+async function loadPosts(reset = false) {
+  if (postsLoading.value) return
+  if (!profile.value.id) return
+
+  postsLoading.value = true
+
+  try {
+    if (reset) {
+      postsPage.value = 1
+      userPosts.value = []
+    }
+
+    const data = await posts.byUser(profile.value.id, postsPage.value)
+
+    if (reset) {
+      userPosts.value = data.data
+    } else {
+      userPosts.value.push(...data.data)
+    }
+
+    postsLastPage.value = data.last_page
+    profile.value.posts_count = data.total
+
+    // Build activity from recent posts
+    if (reset && data.data.length > 0) {
+      const icons = ['upload', 'palette', 'star']
+      const colors = ['#4090ff', '#05cc47', '#f0c040']
+      activity.value = data.data.slice(0, 3).map((p, i) => ({
+        icon: icons[i % 3],
+        label: 'Posted',
+        link: p.caption ? p.caption.substring(0, 30) : `Post #${p.id}`,
+        time: timeAgo(p.created_at),
+        color: colors[i % 3],
+      }))
+    }
+  } catch (e) {
+    console.error('Failed to load posts:', e)
+  } finally {
+    postsLoading.value = false
+  }
+}
+
+async function loadMorePosts() {
+  if (postsPage.value >= postsLastPage.value) return
+  postsPage.value++
+  await loadPosts()
+}
+
+// ─── API: Follow counts ──────────────────────────────────
+async function loadFollowCounts(userId) {
+  try {
+    const [followersData, followingData] = await Promise.all([
+      follow.followers(userId, 1),
+      follow.following(userId, 1),
+    ])
+    profile.value.followers_count = followersData.total || 0
+    profile.value.following_count = followingData.total || 0
+  } catch (e) {
+    // Counts stay at 0
+  }
+}
+
+// ─── API: Check follow status ────────────────────────────
+async function checkFollowStatus(userId) {
+  try {
+    const data = await follow.isFollowing(userId)
+    isWatching.value = data.is_following
+  } catch {
+    isWatching.value = false
+  }
+}
+
+// ─── API: Toggle follow ──────────────────────────────────
+async function toggleWatch() {
+  if (!profile.value.id || isOwnProfile.value) return
+
+  try {
+    if (isWatching.value) {
+      await follow.unfollow(profile.value.id)
+      isWatching.value = false
+      profile.value.followers_count = Math.max(0, profile.value.followers_count - 1)
+    } else {
+      await follow.follow(profile.value.id)
+      isWatching.value = true
+      profile.value.followers_count++
+    }
+  } catch (e) {
+    console.error('Follow/unfollow failed:', e)
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────
+function timeAgo(dateStr) {
+  const now = Date.now()
+  const then = new Date(dateStr).getTime()
+  const seconds = Math.floor((now - then) / 1000)
+  if (seconds < 60) return 'just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
+
+// ─── Counter animation ────────────────────────────────────
+function animateCounter(target, setter, duration = 1200) {
+  if (!target) { setter(0); return }
+  const start = performance.now()
+  const update = (now) => {
+    const elapsed = now - start
+    const progress = Math.min(elapsed / duration, 1)
+    const eased = 1 - Math.pow(1 - progress, 3)
+    setter(Math.floor(eased * target))
+    if (progress < 1) requestAnimationFrame(update)
+    else setter(target)
+  }
+  requestAnimationFrame(update)
+}
+
+// ─── Intersection Observer for stats ─────────────────────
+let statsObserver = null
+
+function initStatsObserver() {
+  const el = document.getElementById('stats-section')
+  if (!el) return
+  statsObserver = new IntersectionObserver(([entry]) => {
+    if (entry.isIntersecting && !statsAnimated.value) {
+      statsAnimated.value = true
+      animateCounter(profile.value.followers_count, v => animatedWatchers.value = v)
+      animateCounter(profile.value.posts_count, v => animatedDeviations.value = v, 1000)
+      animateCounter(profile.value.following_count, v => animatedViews.value = v, 1500)
+      statsObserver?.disconnect()
+    }
+  }, { threshold: 0.3 })
+  statsObserver.observe(el)
+}
+
+// ─── Staggered mount animations ──────────────────────────
+let scrollHandler = null
+
+onMounted(async () => {
+  setTimeout(() => { showBanner.value = true }, 100)
+  setTimeout(() => { showAvatar.value = true }, 250)
+  setTimeout(() => { showMeta.value = true }, 380)
+  setTimeout(() => { showSidebar.value = true }, 450)
+
+  await loadProfile()
+
+  setTimeout(() => { isLoading.value = false }, 200)
+  setTimeout(() => { showStats.value = true; initStatsObserver() }, 300)
+  setTimeout(() => { showTabs.value = true }, 400)
+  setTimeout(() => { showGrid.value = true }, 500)
+
+  // Scroll-based header
+  scrollHandler = () => { headerVisible.value = window.scrollY > 200 }
+  window.addEventListener('scroll', scrollHandler)
+})
+
+onUnmounted(() => {
+  if (scrollHandler) window.removeEventListener('scroll', scrollHandler)
+  statsObserver?.disconnect()
+})
+
+// Re-load when route changes (e.g. navigating to another user's profile)
+watch(profileUsername, () => {
+  statsAnimated.value = false
+  loadProfile()
+})
+
+function postComment() {
+  if (!newComment.value.trim()) return
+  comments.value.unshift({
+    username: authUser.value?.username || 'YOU',
+    time: 'JUST NOW',
+    text: newComment.value,
+    likes: 0,
+  })
+  newComment.value = ''
+}
+
+function likeComment(comment) {
+  comment.likes++
+}
 </script>
 
 <template>
-  <div class="max-w-4xl mx-auto w-full">
-    <!-- Profile Header -->
-    <div class="bg-surface rounded-3xl p-6 md:p-10 mb-8 border border-border flex flex-col md:flex-row items-center md:items-start gap-8 relative overflow-hidden">
-      <!-- Abstract BG inside header -->
-      <div class="absolute -top-20 -right-20 w-64 h-64 bg-primary/10 rounded-full blur-[50px] pointer-events-none"></div>
+  <div class="profile-root bg-dark min-h-screen text-white overflow-x-hidden">
 
-      <!-- Avatar -->
-      <div class="relative shrink-0">
-        <div class="w-32 h-32 md:w-40 md:h-40 rounded-full p-1 bg-gradient-to-tr from-primary to-blue-500">
-          <div class="w-full h-full rounded-full border-4 border-surface overflow-hidden bg-dark">
-            <img :src="profile.avatar" alt="Profile Avatar" class="w-full h-full object-cover">
-          </div>
+    <!-- ── Sticky floating header (appears on scroll) ── -->
+    <Transition name="slide-down">
+      <div v-if="headerVisible" class="sticky-header fixed top-0 left-0 right-0 z-50
+        flex items-center gap-4 px-6 py-3
+        bg-dark/90 backdrop-blur-lg border-b border-border">
+        <div class="w-8 h-8 rounded-lg overflow-hidden border border-border flex-shrink-0
+          flex items-center justify-center bg-surface">
+          <img v-if="profile.avatar_url" :src="profile.avatar_url" class="w-full h-full object-cover" />
+          <span v-else class="material-symbols-rounded icon-filled text-primary text-sm">person</span>
         </div>
-        <div v-if="profile.isPro" class="absolute bottom-2 right-2 bg-primary text-black text-xs font-black px-2 py-1 rounded border-2 border-surface shadow-lg">PRO</div>
+        <span class="font-black text-sm tracking-widest">{{ profile.username }}</span>
+        <div class="flex gap-6 ml-4 text-xs text-white/40 font-bold tracking-wider">
+          <span>{{ formatNumber(profile.followers_count) }} <span class="text-white/25">FOLLOWERS</span></span>
+          <span>{{ formatNumber(profile.posts_count) }} <span class="text-white/25">POSTS</span></span>
+        </div>
+        <button @click="toggleWatch"
+          class="ml-auto btn-watch-sm flex items-center gap-1.5 px-4 py-1.5 rounded font-black text-xs tracking-widest"
+          :class="isWatching ? 'bg-surface border border-border text-white/60' : 'bg-primary text-black'">
+          <span class="material-symbols-rounded text-sm">{{ isWatching ? 'visibility_off' : 'visibility' }}</span>
+          {{ isWatching ? 'UNWATCH' : 'WATCH' }}
+        </button>
+      </div>
+    </Transition>
+
+    <!-- ── BANNER ── -->
+    <div class="banner-wrap relative overflow-hidden"
+      :class="showBanner ? 'banner-in' : 'banner-out'"
+      style="height: 280px;">
+      <!-- Animated banner background -->
+      <div class="absolute inset-0" :style="{ background: profile.bannerGradient }">
+        <!-- Neon beam animations -->
+        <div class="beam beam-1"></div>
+        <div class="beam beam-2"></div>
+        <div class="beam beam-3"></div>
+        <div class="absolute inset-0 scanlines pointer-events-none"></div>
+        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-dark"></div>
       </div>
 
-      <!-- User Info -->
-      <div class="flex-1 text-center md:text-left z-10">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-          <div>
-            <h2 class="text-2xl md:text-3xl font-black text-white">{{ profile.fullName }}</h2>
-            <p class="text-gray-400 font-medium">@{{ profile.username }}</p>
-          </div>
-          <div class="flex items-center justify-center gap-3">
-            <button v-if="profile.username !== currentUser.username" class="bg-primary text-black font-bold px-6 py-2 rounded-full hover:bg-green-400 transition-colors">
-              Follow
-            </button>
-            <button v-else class="bg-dark text-white font-bold px-6 py-2 rounded-full border border-border hover:bg-white/5 transition-colors">
-              Edit Profile
-            </button>
-            <button class="w-10 h-10 rounded-full border border-border flex items-center justify-center text-white hover:bg-white/5 transition-colors">
-              <span class="material-symbols-rounded">more_horiz</span>
-            </button>
+      <!-- PRO badge top-right -->
+      <div v-if="false"
+        class="absolute top-5 right-6 z-10 flex items-center gap-1.5 px-3 py-1
+          border border-primary/40 rounded text-primary text-xs font-black tracking-widest
+          bg-dark/60 backdrop-blur-sm">
+        <span class="w-1.5 h-1.5 rounded-full bg-primary pulse-dot"></span>
+        PRO ACCOUNT
+      </div>
+    </div>
+
+    <!-- ── PROFILE HEADER ── -->
+    <div class="relative px-6 md:px-10 -mt-20 z-10">
+      <div class="flex flex-col md:flex-row md:items-end gap-5 md:gap-8">
+
+        <!-- Avatar -->
+        <div class="avatar-wrap flex-shrink-0"
+          :class="showAvatar ? 'avatar-in' : 'avatar-out'">
+          <div class="relative w-28 h-28 md:w-36 md:h-36">
+            <div class="avatar-glow absolute -inset-1 rounded-xl"></div>
+            <div class="relative w-full h-full rounded-xl border-2 border-primary/60
+              bg-surface overflow-hidden flex items-center justify-center">
+              <img v-if="profile.avatar_url" :src="profile.avatar_url" class="w-full h-full object-cover" />
+              <span v-else class="material-symbols-rounded icon-filled text-white/30" style="font-size: 3rem">person</span>
+              <!-- Avatar shimmer overlay -->
+              <div class="avatar-shimmer absolute inset-0"></div>
+            </div>
+            <!-- Online dot -->
+            <div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-primary border-2 border-dark pulse-dot"></div>
           </div>
         </div>
 
-        <p class="text-gray-300 mb-6 max-w-lg mx-auto md:mx-0">{{ profile.bio }}</p>
+        <!-- Name + actions -->
+        <div class="flex-1 flex flex-col md:flex-row md:items-end gap-4 pb-2"
+          :class="showMeta ? 'meta-in' : 'meta-out'">
+          <div class="flex-1">
+            <h1 class="profile-name text-3xl md:text-5xl font-black tracking-tight leading-none mb-1">
+              {{ profile.name || profile.username }}
+            </h1>
+            <p class="text-white/40 text-xs md:text-sm font-bold tracking-widest uppercase">
+              @{{ profile.username }}
+            </p>
+          </div>
 
-        <!-- Stats -->
-        <div class="flex items-center justify-center md:justify-start gap-8 border-t border-border/50 pt-6">
-          <div class="text-center md:text-left">
-            <p class="text-2xl font-bold text-white">{{ profile.followers.toLocaleString() }}</p>
-            <p class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Followers</p>
-          </div>
-          <div class="text-center md:text-left">
-            <p class="text-2xl font-bold text-white">{{ profile.following.toLocaleString() }}</p>
-            <p class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Following</p>
-          </div>
-          <div class="text-center md:text-left">
-            <p class="text-2xl font-bold text-white">128</p>
-            <p class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Artworks</p>
+          <div class="flex gap-3 flex-shrink-0">
+            <button v-if="!isOwnProfile" @click="toggleWatch"
+              class="watch-btn flex items-center gap-2 px-6 py-2.5 rounded font-black text-sm tracking-widest transition-all duration-300"
+              :class="isWatching
+                ? 'bg-surface border border-border text-white/60 hover:border-white/30'
+                : 'bg-primary text-black hover:bg-primary/90 watch-glow'">
+              <span class="material-symbols-rounded icon-filled text-base">
+                {{ isWatching ? 'person_remove' : 'person_add' }}
+              </span>
+              {{ isWatching ? 'WATCHING' : 'WATCH' }}
+            </button>
+
+            <button v-if="!isOwnProfile"
+              class="flex items-center gap-2 px-5 py-2.5 rounded font-black text-sm tracking-widest
+                bg-surface border border-border text-white/70
+                hover:border-white/30 hover:text-white transition-all duration-200">
+              <span class="material-symbols-rounded text-base">mail</span>
+              MESSAGE
+            </button>
+
+            <button v-if="isOwnProfile"
+              class="flex items-center gap-2 px-5 py-2.5 rounded font-black text-sm tracking-widest
+                bg-surface border border-primary/40 text-primary
+                hover:bg-primary hover:text-black transition-all duration-200">
+              <span class="material-symbols-rounded text-base">edit</span>
+              EDIT PROFILE
+            </button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Gallery Grid -->
-    <div>
-      <div class="flex items-center gap-6 border-b border-border mb-6 px-4">
-        <button class="pb-3 text-primary border-b-2 border-primary font-medium flex items-center gap-2">
-          <span class="material-symbols-rounded text-[20px]">grid_on</span> Works
-        </button>
-        <button class="pb-3 text-gray-400 hover:text-white transition-colors font-medium flex items-center gap-2">
-          <span class="material-symbols-rounded text-[20px]">favorite</span> Saved
-        </button>
+    <!-- ── STATS BAR ── -->
+    <div id="stats-section"
+      class="mx-6 md:mx-10 mt-6 transition-all duration-700"
+      :class="showStats ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'">
+      <div class="stats-bar grid grid-cols-3 rounded-xl border border-border bg-surface/60 backdrop-blur-sm overflow-hidden">
+        <div v-for="(stat, i) in [
+          { val: animatedWatchers, label: 'FOLLOWERS', raw: profile.followers_count },
+          { val: animatedDeviations, label: 'POSTS', raw: profile.posts_count },
+          { val: animatedViews, label: 'FOLLOWING', raw: profile.following_count },
+        ]" :key="i"
+          class="stat-cell flex flex-col items-center justify-center py-5 relative"
+          :style="{ transitionDelay: (i * 80) + 'ms' }">
+          <div v-if="i < 2" class="absolute right-0 top-1/4 bottom-1/4 w-px bg-border"></div>
+          <span class="text-primary font-black text-2xl md:text-3xl tracking-tight tabular-nums">
+            {{ formatNumber(stat.val) }}
+          </span>
+          <span class="text-white/30 text-xs font-bold tracking-widest mt-1">{{ stat.label }}</span>
+        </div>
       </div>
+    </div>
 
-      <ArtGrid :items="exploreGrid.slice(0, 5)" />
+    <!-- ── MAIN CONTENT ── -->
+    <div class="flex gap-0 md:gap-8 px-0 md:px-10 mt-8 pb-20">
+
+      <!-- ── SIDEBAR (desktop only) ── -->
+      <aside class="hidden md:flex flex-col gap-5 w-72 flex-shrink-0 transition-all duration-700"
+        :class="showSidebar ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'">
+
+        <!-- About card -->
+        <div class="glass-card rounded-xl border border-border bg-surface/60 p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="material-symbols-rounded text-primary text-lg">info</span>
+            <h3 class="text-xs font-black tracking-widest text-white/60">ABOUT</h3>
+          </div>
+          <p class="text-sm text-white/55 leading-relaxed mb-5">{{ profile.bio || 'No bio yet.' }}</p>
+
+          <div class="flex flex-col gap-3 text-xs">
+            <div class="flex justify-between">
+              <span class="text-white/30 font-bold tracking-wider">JOINED</span>
+              <span class="text-white/70 font-bold">{{ formattedJoinDate }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-white/30 font-bold tracking-wider">POSTS</span>
+              <span class="text-white/70 font-bold">{{ profile.posts_count }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-white/30 font-bold tracking-wider">FOLLOWERS</span>
+              <span class="text-white/70 font-bold">{{ profile.followers_count }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Activity card -->
+        <div class="glass-card rounded-xl border border-border bg-surface/60 p-5">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="material-symbols-rounded text-primary text-lg">trending_up</span>
+            <h3 class="text-xs font-black tracking-widest text-white/60">ACTIVITY</h3>
+          </div>
+          <div class="flex flex-col gap-4">
+            <div v-for="(act, i) in activity" :key="i"
+              class="activity-row flex items-start gap-3 group"
+              :style="{ animationDelay: (i * 100 + 500) + 'ms' }">
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                :style="{ background: act.color + '18', border: '1px solid ' + act.color + '30' }">
+                <span class="material-symbols-rounded text-sm icon-filled"
+                  :style="{ color: act.color }">{{ act.icon }}</span>
+              </div>
+              <div>
+                <p class="text-xs text-white/60">
+                  {{ act.label }}
+                  <span class="font-bold text-primary cursor-pointer hover:underline">{{ act.link }}</span>
+                </p>
+                <p class="text-xs text-white/25 mt-0.5">{{ act.time }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Go Premium -->
+        <div v-if="isOwnProfile"
+          class="premium-card rounded-xl p-5 relative overflow-hidden cursor-pointer
+            border border-primary/30 hover:border-primary/60 transition-all duration-300 group">
+          <div class="premium-bg absolute inset-0"></div>
+          <div class="relative z-10 flex items-center gap-3">
+            <span class="material-symbols-rounded icon-filled text-primary text-2xl">bolt</span>
+            <div>
+              <p class="text-sm font-black text-white tracking-wider">Go Premium</p>
+              <p class="text-xs text-white/40">Unlock advanced creator tools</p>
+            </div>
+            <span class="material-symbols-rounded text-white/30 ml-auto group-hover:text-white/60 transition-colors">chevron_right</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- ── MAIN COLUMN ── -->
+      <main class="flex-1 min-w-0 px-6 md:px-0">
+
+        <!-- TABS -->
+        <div class="tabs-wrap mb-6 transition-all duration-500"
+          :class="showTabs ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'">
+          <div class="flex gap-1 p-1 bg-surface/60 border border-border rounded-xl w-fit">
+            <button v-for="tab in tabs" :key="tab.key"
+              @click="activeTab = tab.key"
+              class="tab-btn px-5 py-2.5 rounded-lg text-xs font-black tracking-widest transition-all duration-200"
+              :class="activeTab === tab.key
+                ? 'bg-primary text-black'
+                : 'text-white/40 hover:text-white/70'">
+              {{ tab.label }}
+            </button>
+          </div>
+        </div>
+
+        <!-- GALLERY GRID -->
+        <Transition name="fade-up" mode="out-in">
+          <div v-if="activeTab === 'recent'" key="recent">
+            <div class="gallery-header flex items-center justify-between mb-5"
+              :class="showGrid ? 'opacity-100' : 'opacity-0'">
+              <h2 class="text-sm font-black tracking-widest text-white/60">FEATURED DEVIATIONS</h2>
+              <button class="text-xs font-bold tracking-widest text-primary hover:text-primary/70 transition-colors">
+                VIEW ALL GALLERY →
+              </button>
+            </div>
+
+            <!-- Empty state -->
+            <div v-if="galleryItems.length === 0 && !postsLoading" class="flex flex-col items-center justify-center py-24 text-center">
+              <span class="material-symbols-rounded icon-filled text-white/10 mb-4" style="font-size: 4rem">photo_library</span>
+              <p class="text-white/30 font-bold tracking-widest text-sm">NO POSTS YET</p>
+              <p class="text-white/20 text-xs mt-1">{{ isOwnProfile ? 'Start sharing your work!' : 'This user hasn\'t posted yet.' }}</p>
+            </div>
+
+            <div v-else class="art-grid"
+              :class="showGrid ? 'grid-in' : 'grid-out'">
+              <div v-for="(item, i) in galleryItems" :key="item.id"
+                class="art-cell group cursor-pointer rounded-xl overflow-hidden relative"
+                :class="[
+                  item.span === 'large' ? 'art-large' : '',
+                  item.span === 'tall' ? 'art-tall' : '',
+                  item.span === 'wide' ? 'art-wide' : '',
+                  item.span === 'normal' ? 'art-normal' : '',
+                ]"
+                :style="{ animationDelay: (i * 60) + 'ms' }">
+                <!-- Real post image -->
+                <div class="art-bg absolute inset-0 transition-transform duration-500 group-hover:scale-110">
+                  <img :src="item.image_url" :alt="item.caption || 'Post'" class="w-full h-full object-cover" />
+                </div>
+
+                <!-- Hover overlay -->
+                <div class="art-overlay absolute inset-0 flex flex-col items-center justify-center
+                  opacity-0 group-hover:opacity-100 transition-all duration-300
+                  bg-black/60 backdrop-blur-sm">
+                  <span class="material-symbols-rounded icon-filled text-white text-3xl mb-2">open_in_full</span>
+                  <span v-if="item.caption" class="text-xs font-bold text-white/60 tracking-wider px-4 text-center line-clamp-2">{{ item.caption }}</span>
+                  <span v-else class="text-xs font-bold text-white/60 tracking-wider">VIEW POST</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Load more posts -->
+            <button v-if="postsPage < postsLastPage"
+              @click="loadMorePosts"
+              :disabled="postsLoading"
+              class="load-more w-full mt-6 py-4 border border-border rounded-xl
+                text-xs font-black tracking-widest text-white/30
+                hover:border-primary/30 hover:text-primary/70 transition-all duration-300
+                flex items-center justify-center gap-2 disabled:opacity-50">
+              <span v-if="postsLoading" class="material-symbols-rounded text-sm animate-spin">autorenew</span>
+              <template v-else>
+                <span class="material-symbols-rounded text-sm">expand_more</span>
+                LOAD MORE POSTS
+              </template>
+            </button>
+          </div>
+
+          <!-- COLLECTIONS tab -->
+          <div v-else-if="activeTab === 'collections'" key="collections" class="fade-up-enter-active">
+            <div class="flex flex-col items-center justify-center py-24 text-center">
+              <span class="material-symbols-rounded icon-filled text-white/10 mb-4" style="font-size: 4rem">collections</span>
+              <p class="text-white/30 font-bold tracking-widest text-sm">NO COLLECTIONS YET</p>
+              <p class="text-white/20 text-xs mt-1">Start curating your work into collections</p>
+            </div>
+          </div>
+
+          <!-- ABOUT tab -->
+          <div v-else-if="activeTab === 'about'" key="about" class="fade-up-enter-active">
+            <div class="glass-card rounded-xl border border-border bg-surface/60 p-6 max-w-xl">
+              <p class="text-white/60 leading-relaxed mb-6">{{ profile.bio || 'No bio yet.' }}</p>
+              <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p class="text-white/25 font-bold tracking-wider text-xs mb-1">JOINED</p>
+                  <p class="text-white/70 font-bold">{{ formattedJoinDate }}</p>
+                </div>
+                <div>
+                  <p class="text-white/25 font-bold tracking-wider text-xs mb-1">USERNAME</p>
+                  <p class="text-white/70 font-bold">@{{ profile.username }}</p>
+                </div>
+                <div class="col-span-2">
+                  <p class="text-white/25 font-bold tracking-wider text-xs mb-2">NAME</p>
+                  <div class="flex gap-2">
+                    <span class="px-3 py-1 text-xs font-bold border border-border rounded-full text-white/50">
+                      {{ profile.name }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Transition>
+
+        <!-- ── COMMUNITY FEEDBACK ── -->
+        <div class="mt-12 transition-all duration-700 delay-300"
+          :class="showGrid ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'">
+          <h2 class="text-sm font-black tracking-widest text-white/60 mb-6">COMMUNITY FEEDBACK</h2>
+
+          <!-- Comment input -->
+          <div class="flex gap-3 mb-6">
+            <div class="w-9 h-9 rounded-lg bg-surface border border-border flex items-center justify-center flex-shrink-0">
+              <span class="material-symbols-rounded icon-filled text-white/30 text-sm">person</span>
+            </div>
+            <div class="flex-1">
+              <textarea
+                v-model="newComment"
+                placeholder="Leave a comment..."
+                rows="3"
+                class="comment-input w-full bg-surface/60 border border-border rounded-xl px-4 py-3
+                  text-sm text-white placeholder-white/20 resize-none outline-none
+                  focus:border-primary/50 focus:bg-surface transition-all duration-200"
+                @keydown.ctrl.enter="postComment"
+              ></textarea>
+              <div class="flex justify-end mt-2">
+                <button @click="postComment"
+                  class="px-5 py-2 bg-surface border border-border rounded-lg
+                    text-xs font-black tracking-widest text-white/60
+                    hover:border-primary/50 hover:text-primary transition-all duration-200">
+                  POST COMMENT
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Comments list -->
+          <TransitionGroup name="comment-list" tag="div" class="flex flex-col gap-5">
+            <div v-for="comment in comments" :key="comment.username + comment.time"
+              class="comment-card flex gap-3 group">
+              <div class="w-9 h-9 rounded-lg bg-surface border border-border flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span class="material-symbols-rounded icon-filled text-white/30 text-sm">person</span>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-baseline gap-2 mb-1.5">
+                  <span class="text-xs font-black tracking-wider text-white">{{ comment.username }}</span>
+                  <span class="text-xs text-white/25 font-bold">{{ comment.time }}</span>
+                </div>
+                <p class="text-sm text-white/55 leading-relaxed">{{ comment.text }}</p>
+                <div class="flex items-center gap-4 mt-2">
+                  <button @click="likeComment(comment)"
+                    class="flex items-center gap-1.5 text-xs text-white/30
+                      hover:text-primary transition-colors duration-150 group/like">
+                    <span class="material-symbols-rounded icon-filled text-sm
+                      group-hover/like:scale-125 transition-transform duration-150">favorite</span>
+                    {{ comment.likes }}
+                  </button>
+                  <button class="text-xs text-white/25 hover:text-white/50 font-bold tracking-wider transition-colors">
+                    ↩ REPLY
+                  </button>
+                </div>
+              </div>
+            </div>
+          </TransitionGroup>
+
+          <!-- Load more -->
+          <button class="load-more w-full mt-8 py-4 border border-border rounded-xl
+            text-xs font-black tracking-widest text-white/30
+            hover:border-primary/30 hover:text-primary/70 transition-all duration-300
+            flex items-center justify-center gap-2">
+            <span class="material-symbols-rounded text-sm">expand_more</span>
+            LOAD MORE CONVERSATIONS
+          </button>
+        </div>
+      </main>
     </div>
   </div>
 </template>
+
+<style scoped>
+/* ─── Tailwind-compatible custom properties ─── */
+.profile-root {
+  font-family: 'Inter', sans-serif;
+}
+
+/* ─── Beam animations (banner) ─── */
+.beam {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 100%;
+  filter: blur(40px);
+}
+
+.beam-1 {
+  width: 600px; height: 200px;
+  background: linear-gradient(90deg, transparent, rgba(5, 204, 71, 0.15), transparent);
+  top: 30%; left: -100px;
+  transform: rotate(-15deg);
+  animation: beam-sweep 8s ease-in-out infinite;
+}
+
+.beam-2 {
+  width: 400px; height: 150px;
+  background: linear-gradient(90deg, transparent, rgba(0, 120, 255, 0.1), transparent);
+  top: 60%; right: -50px;
+  transform: rotate(10deg);
+  animation: beam-sweep 10s ease-in-out infinite 2s;
+}
+
+.beam-3 {
+  width: 300px; height: 100px;
+  background: linear-gradient(90deg, transparent, rgba(5, 204, 71, 0.08), transparent);
+  top: 10%; left: 40%;
+  animation: beam-sweep 12s ease-in-out infinite 4s;
+}
+
+@keyframes beam-sweep {
+  0%, 100% { transform: translateX(-30px) rotate(-15deg); opacity: 0.5; }
+  50% { transform: translateX(30px) rotate(-15deg); opacity: 1; }
+}
+
+.scanlines {
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent, transparent 2px,
+    rgba(255,255,255,0.012) 2px, rgba(255,255,255,0.012) 4px
+  );
+}
+
+/* ─── Banner entrance ─── */
+.banner-out { opacity: 0; transform: scaleY(0.92); filter: blur(4px); transition: none; }
+.banner-in {
+  opacity: 1; transform: scaleY(1); filter: blur(0);
+  transition: opacity 0.7s ease, transform 0.7s ease, filter 0.7s ease;
+}
+
+/* ─── Avatar entrance ─── */
+.avatar-out { opacity: 0; transform: translateY(20px) scale(0.9); transition: none; }
+.avatar-in {
+  opacity: 1; transform: translateY(0) scale(1);
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ─── Meta entrance ─── */
+.meta-out { opacity: 0; transform: translateX(-16px); transition: none; }
+.meta-in {
+  opacity: 1; transform: translateX(0);
+  transition: all 0.5s ease;
+}
+
+/* ─── Avatar glow ─── */
+.avatar-glow {
+  background: conic-gradient(from 0deg, #05cc47, transparent, #05cc47, transparent, #05cc47);
+  border-radius: 14px;
+  animation: rotate-glow 4s linear infinite;
+  opacity: 0.5;
+}
+
+@keyframes rotate-glow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.avatar-shimmer {
+  background: linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.06) 50%, transparent 60%);
+  background-size: 200% 200%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%, 100% { background-position: 200% 200%; }
+  50% { background-position: 0% 0%; }
+}
+
+/* ─── Profile name ─── */
+.profile-name {
+  background: linear-gradient(135deg, #ffffff 60%, rgba(255,255,255,0.6) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.02em;
+}
+
+/* ─── Pulse dot ─── */
+.pulse-dot {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(5, 204, 71, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(5, 204, 71, 0); }
+}
+
+/* ─── Watch button glow ─── */
+.watch-glow {
+  box-shadow: 0 0 20px rgba(5, 204, 71, 0.3);
+}
+
+.watch-glow:hover {
+  box-shadow: 0 0 30px rgba(5, 204, 71, 0.5);
+}
+
+/* ─── Art Grid ─── */
+.art-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: auto;
+  gap: 8px;
+}
+
+.art-large { grid-column: span 4; grid-row: span 2; min-height: 320px; }
+.art-tall  { grid-column: span 2; grid-row: span 2; min-height: 320px; }
+.art-wide  { grid-column: span 4; grid-row: span 1; min-height: 160px; }
+.art-normal{ grid-column: span 2; grid-row: span 1; min-height: 160px; }
+
+/* Grid entrance */
+.grid-out .art-cell { opacity: 0; transform: translateY(20px); }
+.grid-in .art-cell {
+  animation: cell-in 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+@keyframes cell-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Art cell internals */
+.art-bg { transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+
+.art-inner-glow {
+  background: radial-gradient(ellipse at 30% 30%, rgba(255,255,255,0.06) 0%, transparent 60%);
+}
+
+.art-grid-tex {
+  background-image: 
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* ─── Premium card ─── */
+.premium-bg {
+  background: linear-gradient(135deg, rgba(5,204,71,0.08) 0%, rgba(5,204,71,0.02) 100%);
+}
+
+/* ─── Comment input ─── */
+.comment-input { font-family: 'Inter', sans-serif; }
+
+/* ─── Comment list transition ─── */
+.comment-list-enter-active { transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+.comment-list-enter-from { opacity: 0; transform: translateY(-12px); }
+
+/* ─── Fade-up transition ─── */
+.fade-up-enter-active { animation: fade-up-anim 0.35s ease both; }
+.fade-up-leave-active { animation: fade-up-anim 0.2s ease reverse both; }
+
+@keyframes fade-up-anim {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Slide-down for sticky header ─── */
+.slide-down-enter-active { transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+.slide-down-leave-active { transition: all 0.2s ease; }
+.slide-down-enter-from { opacity: 0; transform: translateY(-100%); }
+.slide-down-leave-to { opacity: 0; transform: translateY(-100%); }
+
+/* ─── Load more ─── */
+.load-more {
+  background: rgba(255,255,255,0.015);
+}
+.load-more:hover {
+  background: rgba(5, 204, 71, 0.03);
+}
+
+/* ─── Mobile responsive ─── */
+@media (max-width: 768px) {
+  .art-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .art-large { grid-column: span 2; grid-row: span 1; min-height: 220px; }
+  .art-tall  { grid-column: span 1; grid-row: span 1; min-height: 180px; }
+  .art-wide  { grid-column: span 2; min-height: 140px; }
+  .art-normal{ grid-column: span 1; min-height: 140px; }
+}
+
+/* ─── Tabular nums for counter ─── */
+.tabular-nums { font-variant-numeric: tabular-nums; }
+</style>
