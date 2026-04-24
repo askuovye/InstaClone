@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+/* Additional tailwind micro-utilities and animations */
+@theme {
+  --color-primary: #05cc47;
+  --color-dark: #12131a;
+  --color-surface: #1a1b22;
+  --color-border: rgba(227, 225, 235, 0.15);
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-surface/80 backdrop-blur-md border border-border;
+  }
+  
+  .hover-scale {
+    @apply transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg;
+  }
+
+  .text-neon {
+    text-shadow: 0 0 10px rgba(5, 204, 71, 0.5);
+  }
+}
+
+/* Route transition animations */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
