@@ -1,7 +1,8 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
+import { users as usersApi } from '../services/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -26,6 +27,46 @@ async function handleLogout() {
   await logout()
   router.push('/login')
 }
+
+// ─── Profile Search ───────────────────────────────────────
+const searchQuery = ref('')
+const searchResults = ref([])
+const isSearching = ref(false)
+const showDropdown = ref(false)
+let searchDebounce = null
+
+watch(searchQuery, (val) => {
+  clearTimeout(searchDebounce)
+  if (!val || val.trim().length < 2) {
+    searchResults.value = []
+    showDropdown.value = false
+    return
+  }
+  searchDebounce = setTimeout(async () => {
+    isSearching.value = true
+    try {
+      const data = await usersApi.search(val.trim(), { per_page: 8 })
+      searchResults.value = Array.isArray(data.data) ? data.data : []
+      showDropdown.value = searchResults.value.length > 0
+    } catch {
+      searchResults.value = []
+      showDropdown.value = false
+    } finally {
+      isSearching.value = false
+    }
+  }, 350)
+})
+
+function goToProfile(username) {
+  searchQuery.value = ''
+  showDropdown.value = false
+  router.push(`/profile/${username}`)
+}
+
+function onSearchBlur() {
+  // Delay so click on results registers before hiding
+  setTimeout(() => { showDropdown.value = false }, 200)
+}
 </script>
 
 <template>
@@ -43,15 +84,42 @@ async function handleLogout() {
         </router-link>
       </div>
 
-      <!-- Search -->
-      <div class="flex-1 max-w-xs ml-6">
+      <!-- Search with dropdown -->
+      <div class="flex-1 max-w-xs ml-6 relative">
         <div class="relative">
-          <span class="material-symbols-rounded absolute left-3 top-1/2 -translate-y-1/2 text-white/25 text-sm">search</span>
-          <input type="text" placeholder="Search creators..."
+          <span class="material-symbols-rounded absolute left-3 top-1/2 -translate-y-1/2 text-sm transition-colors"
+            :class="isSearching ? 'text-primary' : 'text-white/25'">
+            {{ isSearching ? 'autorenew' : 'search' }}
+          </span>
+          <input v-model="searchQuery" type="text" placeholder="Search profiles..."
             class="w-full bg-surface/80 border border-border rounded-lg
               pl-9 pr-4 py-2 text-sm text-white placeholder-white/20 outline-none
-              focus:border-primary/40 focus:bg-surface transition-all duration-200" />
+              focus:border-primary/40 focus:bg-surface transition-all duration-200"
+            @focus="showDropdown = searchResults.length > 0"
+            @blur="onSearchBlur" />
         </div>
+
+        <!-- Search Results Dropdown -->
+        <Transition name="dropdown">
+          <div v-if="showDropdown" class="search-dropdown absolute top-full left-0 right-0 mt-2
+            bg-surface border border-border rounded-xl overflow-hidden shadow-2xl z-[60]">
+            <div v-for="user in searchResults" :key="user.id"
+              class="flex items-center gap-3 px-4 py-3 cursor-pointer
+                hover:bg-white/5 transition-colors duration-150"
+              @mousedown.prevent="goToProfile(user.username)">
+              <div class="w-9 h-9 rounded-full overflow-hidden bg-dark border border-border
+                flex items-center justify-center flex-shrink-0">
+                <img v-if="user.avatar_url" :src="user.avatar_url" class="w-full h-full object-cover" />
+                <span v-else class="material-symbols-rounded icon-filled text-white/30 text-sm">person</span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-bold text-white truncate">{{ user.username || user.name }}</p>
+                <p class="text-xs text-white/30 truncate">{{ user.name }}</p>
+              </div>
+              <span class="material-symbols-rounded text-white/20 text-sm">chevron_right</span>
+            </div>
+          </div>
+        </Transition>
       </div>
 
       <!-- Right actions -->
@@ -254,5 +322,26 @@ async function handleLogout() {
 .desktop-sidebar {
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+/* ─── Search dropdown ─── */
+.search-dropdown {
+  backdrop-filter: blur(12px);
+  max-height: 360px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+.dropdown-enter-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.dropdown-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
 }
 </style>

@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
-import { feed as feedApi, likes as likesApi } from '../services/api'
+import { feed as feedApi, likes as likesApi, posts as postsApi } from '../services/api'
 import AppShell from '../components/AppShell.vue'
 
 const router = useRouter()
@@ -14,9 +14,11 @@ const feedLoading = ref(false)
 const feedError = ref(null)
 const feedPosts = ref([])
 const nextCursor = ref(null)
+const nextPage = ref(1)
 const hasMore = ref(true)
 const loadingMore = ref(false)
 const initialLoad = ref(true)
+const feedSource = ref('feed') // 'feed' or 'own'
 
 // ─── Load feed from API ───────────────────────────────────
 async function loadFeed(append = false) {
@@ -27,19 +29,33 @@ async function loadFeed(append = false) {
   feedError.value = null
 
   try {
-    const params = { per_page: 10 }
-    if (append && nextCursor.value) params.cursor = nextCursor.value
+    // Try the followed-users feed first
+    if (feedSource.value === 'feed') {
+      const params = { per_page: 10 }
+      if (append && nextCursor.value) params.cursor = nextCursor.value
 
-    const data = await feedApi.get(params)
+      const data = await feedApi.get(params)
+      const posts = Array.isArray(data.data) ? data.data : []
 
-    if (append) {
-      feedPosts.value.push(...data.data)
+      if (!append && posts.length === 0 && authUser.value?.id) {
+        // Feed is empty — fall back to user's own posts
+        feedSource.value = 'own'
+        nextPage.value = 1
+        await loadOwnPosts(false)
+        return
+      }
+
+      if (append) {
+        feedPosts.value.push(...posts)
+      } else {
+        feedPosts.value = posts
+      }
+
+      nextCursor.value = data.next_cursor || null
+      hasMore.value = !!data.next_cursor
     } else {
-      feedPosts.value = data.data
+      await loadOwnPosts(append)
     }
-
-    nextCursor.value = data.next_cursor || null
-    hasMore.value = !!data.next_cursor
   } catch (e) {
     console.error('Feed load failed:', e)
     feedError.value = e.message || 'Failed to load feed'
@@ -47,6 +63,25 @@ async function loadFeed(append = false) {
     feedLoading.value = false
     loadingMore.value = false
     initialLoad.value = false
+  }
+}
+
+async function loadOwnPosts(append) {
+  try {
+    const data = await postsApi.byUser(authUser.value.id, nextPage.value)
+    const posts = Array.isArray(data.data) ? data.data : []
+
+    if (append) {
+      feedPosts.value.push(...posts)
+    } else {
+      feedPosts.value = posts
+    }
+
+    hasMore.value = !!data.next_page_url
+    if (hasMore.value) nextPage.value++
+  } catch (e) {
+    console.error('Own posts load failed:', e)
+    feedError.value = e.message || 'Failed to load posts'
   }
 }
 
@@ -123,14 +158,28 @@ onUnmounted(() => {
       <main class="feed-column w-full max-w-[480px] lg:max-w-[520px] flex-shrink-0 px-4 md:px-0 pt-4">
 
         <!-- Feed Header -->
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-sm font-black tracking-widest text-white/40">YOUR FEED</h2>
-          <button @click="loadFeed(false)" :disabled="feedLoading"
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-black tracking-widest text-white/40">
+            {{ feedSource === 'own' ? 'YOUR POSTS' : 'YOUR FEED' }}
+          </h2>
+          <button @click="feedSource = 'feed'; loadFeed(false)" :disabled="feedLoading"
             class="text-xs font-bold tracking-wider text-primary/60 hover:text-primary transition-colors
               disabled:opacity-50 flex items-center gap-1">
             <span class="material-symbols-rounded text-sm" :class="{ 'animate-spin': feedLoading }">refresh</span>
             REFRESH
           </button>
+        </div>
+
+        <!-- Own posts hint -->
+        <div v-if="feedSource === 'own' && feedPosts.length > 0"
+          class="mb-6 px-4 py-3 rounded-xl bg-primary/5 border border-primary/15 flex items-start gap-3">
+          <span class="material-symbols-rounded text-primary/50 text-sm mt-0.5">info</span>
+          <div>
+            <p class="text-xs text-white/40">Your feed is empty because you're not following anyone yet.</p>
+            <p class="text-xs text-white/40 mt-0.5">Here are your own posts. 
+              <router-link to="/explore" class="text-primary/70 hover:text-primary font-bold transition-colors">Discover people to follow →</router-link>
+            </p>
+          </div>
         </div>
 
         <!-- Loading skeleton -->
