@@ -1,8 +1,8 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
-import { users as usersApi } from '../services/api'
+import { users as usersApi, notifications as notifApi } from '../services/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -27,6 +27,41 @@ async function handleLogout() {
   await logout()
   router.push('/login')
 }
+
+// ─── Notification Badge ───────────────────────────────────
+const unreadCount = ref(0)
+const isOnNotifPage = computed(() => route.path === '/notifications')
+const showBadge = computed(() => unreadCount.value > 0 && !isOnNotifPage.value)
+let notifPollInterval = null
+
+async function fetchUnreadCount() {
+  try {
+    const data = await notifApi.unreadCount()
+    unreadCount.value = data.unread_count || 0
+  } catch { /* ignore */ }
+}
+
+// Re-fetch when leaving the notifications page
+watch(isOnNotifPage, (onPage, wasOnPage) => {
+  if (wasOnPage && !onPage) {
+    // Just left /notifications — refresh count
+    fetchUnreadCount()
+  }
+  if (onPage) {
+    // Currently on notifications — treat as read visually
+    unreadCount.value = 0
+  }
+})
+
+onMounted(() => {
+  fetchUnreadCount()
+  // Poll every 60 seconds
+  notifPollInterval = setInterval(fetchUnreadCount, 60000)
+})
+
+onUnmounted(() => {
+  clearInterval(notifPollInterval)
+})
 
 // ─── Profile Search ───────────────────────────────────────
 const searchQuery = ref('')
@@ -136,6 +171,14 @@ function onSearchBlur() {
           class="relative w-9 h-9 rounded-full bg-surface border border-border
             flex items-center justify-center hover:border-white/30 transition-colors">
           <span class="material-symbols-rounded text-white/50 text-xl">notifications</span>
+          <Transition name="badge-pop">
+            <span v-if="showBadge"
+              class="notif-badge absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full
+                text-[9px] font-black flex items-center justify-center px-1
+                bg-primary text-black shadow-[0_0_8px_rgba(5,204,71,0.5)]">
+              {{ unreadCount > 9 ? '9+' : unreadCount }}
+            </span>
+          </Transition>
         </router-link>
 
         <router-link to="/profile"
@@ -153,8 +196,12 @@ function onSearchBlur() {
       bg-dark/95 backdrop-blur-xl border-b border-border">
       <router-link to="/" class="brand-wordmark font-black text-lg tracking-tight text-primary italic">KINETIC</router-link>
       <div class="flex items-center gap-2">
-        <router-link to="/notifications" class="w-8 h-8 flex items-center justify-center text-white/50">
+        <router-link to="/notifications" class="relative w-8 h-8 flex items-center justify-center text-white/50">
           <span class="material-symbols-rounded text-xl">notifications</span>
+          <span v-if="showBadge"
+            class="notif-badge absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] rounded-full
+              text-[8px] font-black flex items-center justify-center px-0.5
+              bg-primary text-black shadow-[0_0_6px_rgba(5,204,71,0.5)]">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
         </router-link>
         <router-link to="/create" class="w-8 h-8 flex items-center justify-center text-primary">
           <span class="material-symbols-rounded icon-filled text-2xl">add_circle</span>
@@ -171,7 +218,7 @@ function onSearchBlur() {
         <div class="space-y-0.5">
           <router-link v-for="item in navItems" :key="item.key" :to="item.to"
             class="flex items-center gap-3 px-4 py-2.5 rounded-xl
-              font-bold text-sm tracking-wider transition-all duration-200 group"
+              font-bold text-sm tracking-wider transition-all duration-200 group relative"
             :class="activeNavKey === item.key
               ? 'bg-primary/10 text-primary border border-primary/20'
               : 'text-white/40 hover:text-white hover:bg-white/5'">
@@ -179,6 +226,11 @@ function onSearchBlur() {
               {{ item.icon }}
             </span>
             {{ item.label }}
+            <!-- Notification badge on sidebar alerts -->
+            <span v-if="item.key === 'alerts' && showBadge"
+              class="notif-badge ml-auto min-w-[20px] h-[20px] rounded-full
+                text-[10px] font-black flex items-center justify-center px-1
+                bg-primary text-black">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
           </router-link>
         </div>
 
@@ -227,6 +279,11 @@ function onSearchBlur() {
         <span class="text-[9px]">{{ item.label }}</span>
         <span v-if="activeNavKey === item.key"
           class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary"></span>
+        <!-- Notification badge on bottom nav -->
+        <span v-if="item.key === 'alerts' && showBadge"
+          class="notif-badge absolute top-0.5 right-1.5 min-w-[16px] h-[16px] rounded-full
+            text-[8px] font-black flex items-center justify-center px-0.5
+            bg-primary text-black shadow-[0_0_6px_rgba(5,204,71,0.5)]">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
       </router-link>
     </nav>
 
@@ -343,5 +400,28 @@ function onSearchBlur() {
 .dropdown-leave-to {
   opacity: 0;
   transform: translateY(-6px);
+}
+
+/* ─── Notification Badge ─── */
+.notif-badge {
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(5,204,71,0); }
+  50%      { box-shadow: 0 0 0 4px rgba(5,204,71,0.2); }
+}
+
+/* Badge pop transition */
+.badge-pop-enter-active {
+  animation: badge-pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.badge-pop-leave-active {
+  animation: badge-pop-in 0.2s ease reverse;
+}
+
+@keyframes badge-pop-in {
+  from { opacity: 0; transform: scale(0); }
+  to   { opacity: 1; transform: scale(1); }
 }
 </style>
