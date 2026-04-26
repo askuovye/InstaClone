@@ -139,8 +139,25 @@ function goToProfile(username) {
 async function loadSuggestions() {
   isSuggestionsLoading.value = true
   try {
-    const data = await usersApi.suggestions({ limit: 4 })
-    suggestedUsers.value = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : [])
+    // Fetch a larger pool to find non-followed users
+    const data = await usersApi.suggestions({ limit: 40 })
+    let users = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : [])
+    
+    // Filter: Not following and not me
+    const filtered = users.filter(u => {
+      const isMe = u.id === authUser.value?.id
+      const isFollowing = u.is_following === true
+      return !isMe && !isFollowing
+    })
+
+    // Shuffle for randomness on refresh
+    for (let i = filtered.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [filtered[i], filtered[j]] = [filtered[j], filtered[i]]
+    }
+
+    // Limit to 5 as requested
+    suggestedUsers.value = filtered.slice(0, 5)
   } catch (e) {
     console.error('Failed to load suggestions:', e)
   } finally {
@@ -180,10 +197,15 @@ onMounted(async () => {
       <div class="px-4 md:px-6 pt-5">
 
         <!-- ── Suggested Creators ── -->
-        <div class="mb-8" v-if="!isSuggestionsLoading && suggestedUsers.length > 0">
-          <h2 class="text-xs font-black tracking-widest text-white/40 mb-4 px-2">SUGGESTED FOR YOU</h2>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <AccountCard v-for="user in suggestedUsers" :key="user.id" :user="user" />
+        <div class="mb-10" v-if="!isSuggestionsLoading && suggestedUsers.length > 0">
+          <div class="flex items-center justify-between mb-4 px-2">
+            <h2 class="text-xs font-black tracking-widest text-white/40">SUGGESTED FOR YOU</h2>
+            <button @click="loadSuggestions" class="text-[10px] font-bold text-primary/60 hover:text-primary transition-colors uppercase tracking-widest">
+              Refresh
+            </button>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <AccountCard v-for="user in suggestedUsers" :key="user.id" :user="user" :compact="true" />
           </div>
         </div>
 
