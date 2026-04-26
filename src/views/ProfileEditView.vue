@@ -69,7 +69,7 @@ async function save() {
     </div>
 
     <div v-if="error" class="mb-6 flex items-start gap-3 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs font-bold">
-      <span class="material-symbols-rounded text-sm mt-0.5">error</span>
+      <i class="bi bi-exclamation-triangle-fill text-sm mt-0.5"></i>
       <span>{{ error }}</span>
     </div>
     
@@ -78,7 +78,7 @@ async function save() {
       <div class="flex items-center gap-6">
         <div class="w-20 h-20 rounded-2xl overflow-hidden bg-surface border-2 border-border flex-shrink-0 flex items-center justify-center">
           <img v-if="previewUrl" :src="previewUrl" class="w-full h-full object-cover" />
-          <span v-else class="material-symbols-rounded text-white/20 text-4xl">person</span>
+          <i v-else class="bi bi-person-fill text-white/20 text-4xl"></i>
         </div>
         <div class="flex-1">
           <label class="inline-block px-4 py-2 bg-primary/10 border border-primary/30 text-primary rounded-lg text-xs font-black tracking-widest cursor-pointer hover:bg-primary/20 transition-colors">
@@ -104,8 +104,8 @@ async function save() {
     <div class="flex gap-4 pt-4 border-t border-border/50">
       <button @click="$router.back()" class="flex-1 py-3.5 bg-surface hover:bg-surface/80 border border-border rounded-xl text-xs font-black tracking-widest transition-colors">CANCEL</button>
       <button @click="save" :disabled="isSubmitting" class="flex-1 py-3.5 bg-primary hover:bg-primary/90 text-black rounded-xl text-xs font-black tracking-widest disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
-        <span v-if="isSubmitting" class="material-symbols-rounded text-sm animate-spin">autorenew</span>
-        <span v-else class="material-symbols-rounded text-sm">save</span>
+        <i v-if="isSubmitting" class="bi bi-arrow-repeat text-sm animate-spin"></i>
+        <i v-else class="bi bi-save text-sm"></i>
         {{ isSubmitting ? 'SAVING...' : 'SAVE CHANGES' }}
       </button>
     </div>

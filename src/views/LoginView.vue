@@ -54,7 +54,7 @@ async function handleLogin() {
       <!-- Brand -->
       <div class="relative z-2 flex items-center gap-2 text-primary font-extrabold text-lg tracking-[0.12em] italic">
         <span>
-          <span class="material-symbols-rounded icon-filled text-[1.4rem]">palette</span>
+          <i class="bi bi-palette text-[1.4rem]"></i>
         </span>
         <span>KINETIC</span>
       </div>
@@ -81,12 +81,12 @@ async function handleLogin() {
       <!-- Featured Creator -->
       <div class="relative z-2 max-w-[360px]">
         <div class="flex items-center gap-1.5 text-primary text-[0.65rem] font-bold tracking-[0.15em] mb-2.5">
-          <span class="material-symbols-rounded icon-filled text-[0.9rem]">star</span>
+          <i class="bi bi-star-fill text-[0.9rem]"></i>
           FEATURED CREATOR
         </div>
         <div class="flex items-start gap-3 mb-3">
           <div class="w-[42px] h-[42px] rounded-lg bg-gradient-to-br from-[#1e3a2a] to-[#0d1e14] border-[1.5px] border-primary/30 flex items-center justify-center shrink-0 text-primary">
-            <span class="material-symbols-rounded icon-filled">person</span>
+            <i class="bi bi-person-fill"></i>
           </div>
           <div>
             <p class="text-[0.95rem] font-extrabold text-white tracking-[0.05em] m-0 mb-1">SYST3M_ERROR</p>
@@ -111,7 +111,7 @@ async function handleLogin() {
 
         <!-- Error -->
         <div v-if="error" class="flex items-center gap-2 bg-red-500/10 border border-red-500/30 text-[#ff6b6b] text-[0.82rem] px-4 py-3 rounded-lg mb-6">
-          <span class="material-symbols-rounded text-[1.1rem]">error</span>
+          <i class="bi bi-exclamation-triangle-fill text-[1.1rem]"></i>
           {{ error }}
         </div>
 
@@ -119,7 +119,7 @@ async function handleLogin() {
         <div class="mb-5">
           <label class="block text-[0.65rem] font-bold tracking-[0.15em] text-white/50 mb-2">USER IDENTITY</label>
           <div class="relative flex items-center">
-            <span class="material-symbols-rounded absolute left-3.5 text-white/30 text-[1.1rem] pointer-events-none">alternate_email</span>
+            <i class="bi bi-envelope absolute left-3.5 text-white/30 text-[1.1rem] pointer-events-none"></i>
             <input
               v-model="email"
               type="email"
@@ -138,7 +138,7 @@ async function handleLogin() {
             <router-link to="/forgot-password" class="text-[0.65rem] font-bold tracking-[0.1em] text-primary no-underline hover:underline">RECOVER ACCESS</router-link>
           </div>
           <div class="relative flex items-center">
-            <span class="material-symbols-rounded absolute left-3.5 text-white/30 text-[1.1rem] pointer-events-none">lock</span>
+            <i class="bi bi-lock absolute left-3.5 text-white/30 text-[1.1rem] pointer-events-none"></i>
             <input
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
@@ -148,7 +148,7 @@ async function handleLogin() {
               @keyup.enter="handleLogin"
             />
             <button class="absolute right-3 bg-transparent border-none text-white/35 cursor-pointer p-1 flex hover:text-white/70" @click="showPassword = !showPassword" type="button">
-              <span class="material-symbols-rounded">{{ showPassword ? 'visibility_off' : 'visibility' }}</span>
+              <i class="bi" :class="showPassword ? 'bi-eye-slash' : 'bi-eye'"></i>
             </button>
           </div>
         </div>
@@ -165,7 +165,7 @@ async function handleLogin() {
           @click="handleLogin"
           :disabled="isLoading"
         >
-          <span v-if="isLoading" class="material-symbols-rounded animate-spin">autorenew</span>
+          <i v-if="isLoading" class="bi bi-arrow-repeat animate-spin"></i>
           <span v-else>AUTHENTICATE</span>
         </button>
 

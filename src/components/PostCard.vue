@@ -32,7 +32,7 @@ const toggleLike = () => {
         </div>
       </div>
       <button class="text-gray-400 hover:text-white">
-        <span class="material-symbols-rounded">more_horiz</span>
+        <i class="bi bi-three-dots"></i>
       </button>
     </div>
 
@@ -42,7 +42,7 @@ const toggleLike = () => {
       
       <!-- Double tap indicator overlay (visual only) -->
       <div class="absolute inset-0 flex items-center justify-center opacity-0 group-active:opacity-100 transition-opacity duration-200">
-        <span class="material-symbols-rounded icon-filled text-white drop-shadow-2xl !text-7xl scale-50 group-active:scale-100 transition-transform">favorite</span>
+        <i class="bi bi-heart-fill text-white drop-shadow-2xl !text-7xl scale-50 group-active:scale-100 transition-transform"></i>
       </div>
     </div>
 
@@ -51,19 +51,19 @@ const toggleLike = () => {
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-4">
           <button @click="toggleLike" class="flex items-center gap-1 group">
-            <span class="material-symbols-rounded text-2xl transition-transform group-hover:scale-110" :class="isLiked ? 'icon-filled text-primary text-neon' : 'text-white'">favorite</span>
+            <i class="bi transition-transform group-hover:scale-110" :class="isLiked ? 'bi-heart-fill text-primary text-neon' : 'bi-heart text-white'"></i>
             <span class="text-sm font-semibold text-white">{{ likesCount }}</span>
           </button>
           <button class="flex items-center gap-1 group text-white">
-            <span class="material-symbols-rounded text-2xl transition-transform group-hover:scale-110">chat_bubble</span>
+            <i class="bi bi-chat text-2xl transition-transform group-hover:scale-110"></i>
             <span class="text-sm font-semibold">{{ post.comments }}</span>
           </button>
           <button class="text-white hover:text-primary transition-colors">
-            <span class="material-symbols-rounded text-2xl">send</span>
+            <i class="bi bi-send text-2xl"></i>
           </button>
         </div>
         <button @click="isSaved = !isSaved" class="text-white transition-transform hover:scale-110">
-          <span class="material-symbols-rounded text-2xl" :class="{ 'icon-filled text-primary': isSaved }">bookmark</span>
+          <i class="bi text-2xl" :class="isSaved ? 'bi-bookmark-fill text-primary' : 'bi-bookmark'"></i>
         </button>
       </div>
 

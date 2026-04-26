@@ -9,9 +9,9 @@ const props = defineProps({
 })
 
 const iconMap = {
-  like: 'favorite',
-  follow: 'person_add',
-  comment: 'chat_bubble'
+  like: 'bi-heart-fill',
+  follow: 'bi-person-plus-fill',
+  comment: 'bi-chat-fill'
 }
 
 const actionTextMap = {
@@ -29,11 +29,11 @@ const actionText = computed(() => actionTextMap[props.notification.type])
     <router-link :to="`/profile?user=${notification.user.username}`" class="relative shrink-0">
       <img :src="notification.user.avatar" alt="Avatar" class="w-12 h-12 rounded-full border border-border object-cover">
       <div class="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-dark flex items-center justify-center">
-        <span class="material-symbols-rounded text-sm" :class="{
-          'text-red-500 icon-filled': notification.type === 'like',
-          'text-blue-400 icon-filled': notification.type === 'follow',
-          'text-primary icon-filled': notification.type === 'comment'
-        }">{{ icon }}</span>
+        <i class="bi text-sm" :class="[icon, {
+          'text-red-500': notification.type === 'like',
+          'text-blue-400': notification.type === 'follow',
+          'text-primary': notification.type === 'comment'
+        }]"></i>
       </div>
     </router-link>
 

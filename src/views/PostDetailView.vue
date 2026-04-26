@@ -1,8 +1,10 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { posts as postsApi, likes as likesApi } from '../services/api'
+import { useAuthStore } from '../stores/auth'
 import PostCommentList from '../components/post/PostCommentList.vue'
+import { storeToRefs } from 'pinia'
 
 const route  = useRoute()
 const router = useRouter()
@@ -14,6 +16,14 @@ const saved   = ref(false)
 const imgLoaded = ref(false)
 const panelIn   = ref(false)
 const imageIn   = ref(false)
+const showMenu  = ref(false)
+const authStore = useAuthStore()
+const { user: authUser } = storeToRefs(authStore)
+
+const isCreator = computed(() => {
+  if (!post.value || !authUser.value) return false
+  return authUser.value.id === post.value.user_id || authUser.value.id === post.value.user?.id
+})
 
 async function loadPost() {
   loading.value = true
@@ -48,7 +58,30 @@ function formatCount(n) {
   return String(n)
 }
 
-onMounted(loadPost)
+async function handleDeletePost() {
+  if (!confirm('Are you sure you want to delete this post?')) return
+  try {
+    await postsApi.delete(post.value.id)
+    router.push('/profile')
+  } catch (e) {
+    alert('Failed to delete post')
+  }
+}
+
+function handleOutsideClick(e) {
+  if (showMenu.value && !e.target.closest('.relative')) {
+    showMenu.value = false
+  }
+}
+
+onMounted(() => {
+  loadPost()
+  window.addEventListener('click', handleOutsideClick)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('click', handleOutsideClick)
+})
 </script>
 
 <template>
@@ -179,10 +212,39 @@ onMounted(loadPost)
               </p>
             </div>
 
-            <button class="w-8 h-8 rounded-lg flex items-center justify-center text-white/25
-              hover:text-white hover:bg-white/5 transition-all duration-200">
-              <i class="bi bi-three-dots text-base"></i>
-            </button>
+            <div class="relative">
+              <button @click="showMenu = !showMenu"
+                class="w-8 h-8 rounded-lg flex items-center justify-center text-white/25
+                hover:text-white hover:bg-white/5 transition-all duration-200"
+                :class="{ 'bg-white/10 text-white': showMenu }">
+                <i class="bi bi-three-dots text-base"></i>
+              </button>
+
+              <!-- Dropdown Menu -->
+              <Transition name="fade-scale">
+                <div v-if="showMenu" 
+                  class="absolute right-0 mt-2 w-48 bg-[#1a1b23] border border-white/10 rounded-xl shadow-2xl z-[100] overflow-hidden"
+                  @click="showMenu = false">
+                  <button @click="router.push(`/profile/${post.user?.username}`)"
+                    class="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors text-left">
+                    <i class="bi bi-person-badge"></i>
+                    <span>Show the creator</span>
+                  </button>
+                  
+                  <button v-if="isCreator" @click="router.push(`/posts/${post.id}/edit`)"
+                    class="w-full flex items-center gap-3 px-4 py-3 text-sm text-primary/70 hover:text-primary hover:bg-primary/5 transition-colors text-left border-t border-white/5">
+                    <i class="bi bi-pencil-square"></i>
+                    <span>Edit post</span>
+                  </button>
+
+                  <button v-if="isCreator" @click="handleDeletePost"
+                    class="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400/70 hover:text-red-400 hover:bg-red-400/5 transition-colors text-left border-t border-white/5">
+                    <i class="bi bi-trash"></i>
+                    <span>Delete post</span>
+                  </button>
+                </div>
+              </Transition>
+            </div>
           </div>
 
           <!-- ── Title ── -->
@@ -237,24 +299,6 @@ onMounted(loadPost)
                 {{ formatCount(post.comments_count) }}
               </span>
             </div>
-
-            <!-- Share -->
-            <button class="flex items-center justify-center w-8 h-8 rounded-lg
-              text-white/30 hover:text-white/70 transition-all duration-200
-              hover:bg-white/5"
-              style="border: 1px solid rgba(227,225,235,0.1);">
-              <i class="bi bi-send text-sm"></i>
-            </button>
-
-            <!-- Save (push to right) -->
-            <button @click="saved = !saved"
-              class="ml-auto flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200"
-              :style="saved
-                ? 'background: rgba(5,204,71,0.12); border: 1px solid rgba(5,204,71,0.25);'
-                : 'background: rgba(255,255,255,0.04); border: 1px solid rgba(227,225,235,0.1);'">
-              <i :class="saved ? 'bi bi-bookmark-fill text-primary' : 'bi bi-bookmark text-white/30'"
-                class="text-base transition-all duration-200"></i>
-            </button>
           </div>
 
           <!-- ── Meta strip ── -->
@@ -292,29 +336,6 @@ onMounted(loadPost)
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- ── Below: Creator spotlight (optional extra) ── -->
-      <div v-if="post.user" class="mt-6 flex items-center justify-between px-1">
-        <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0"
-            style="background: rgba(255,255,255,0.04); border: 1px solid rgba(227,225,235,0.08);">
-            <img v-if="post.user?.avatar_url" :src="post.user.avatar_url" class="w-full h-full object-cover" />
-            <i v-else class="bi bi-person-fill text-white/20"></i>
-          </div>
-          <span class="text-xs text-white/25 font-bold">More from</span>
-          <span class="text-xs font-black text-white/50 cursor-pointer hover:text-primary transition-colors"
-            @click="router.push(`/profile/${post.user?.username}`)">
-            {{ post.user?.username }}
-          </span>
-        </div>
-        <button
-          class="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-black tracking-widest
-            text-primary/80 hover:text-black hover:bg-primary transition-all duration-200"
-          style="border: 1px solid rgba(5,204,71,0.25); background: rgba(5,204,71,0.06);">
-          <i class="bi bi-person-plus text-sm"></i>
-          WATCH
-        </button>
       </div>
     </div>
   </div>
@@ -428,11 +449,18 @@ onMounted(loadPost)
 .tabular-nums { font-variant-numeric: tabular-nums; }
 
 /* ─── Post shell subtle hover ─── */
-.post-shell {
-  transition: border-color 0.3s ease;
-}
-
 .post-shell:hover {
   border-color: rgba(5, 204, 71, 0.12);
+}
+
+/* ─── Menu Transition ─── */
+.fade-scale-enter-active,
+.fade-scale-leave-active {
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.fade-scale-enter-from,
+.fade-scale-leave-to {
+  opacity: 0;
+  transform: scale(0.9) translateY(-10px);
 }
 </style>

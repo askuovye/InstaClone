@@ -22,6 +22,7 @@ const {
 } = storeToRefs(feedStore)
 
 const feedVisible = ref(false)
+const activeMenuPostId = ref(null)
 
 const loadFeed = (append = false) => feedStore.loadFeed(append)
 const toggleLike = (post) => feedStore.toggleLike(post.id)
@@ -40,6 +41,27 @@ function navigateToProfile(username) {
   if (username) router.push(`/profile/${username}`)
 }
 
+async function handleDeletePost(post) {
+  if (!confirm('Are you sure you want to delete this post?')) return
+  try {
+    const { posts: postsApi } = await import('../services/api')
+    await postsApi.delete(post.id)
+    feedStore.removePost(post.id)
+  } catch (e) {
+    alert('Failed to delete post')
+  }
+}
+
+function toggleMenu(postId) {
+  activeMenuPostId.value = activeMenuPostId.value === postId ? null : postId
+}
+
+function handleOutsideClick(e) {
+  if (activeMenuPostId.value && !e.target.closest('.post-menu-container')) {
+    activeMenuPostId.value = null
+  }
+}
+
 // ─── Scroll (infinite scroll) ─────────────────────────────
 let scrollHandler = null
 
@@ -56,10 +78,12 @@ onMounted(async () => {
     }
   }
   window.addEventListener('scroll', scrollHandler)
+  window.addEventListener('click', handleOutsideClick)
 })
 
 onUnmounted(() => {
   if (scrollHandler) window.removeEventListener('scroll', scrollHandler)
+  window.removeEventListener('click', handleOutsideClick)
 })
 </script>
 
@@ -78,7 +102,7 @@ onUnmounted(() => {
           <button @click="feedSource = 'feed'; loadFeed(false)" :disabled="feedLoading"
             class="text-xs font-bold tracking-wider text-primary/60 hover:text-primary transition-colors
               disabled:opacity-50 flex items-center gap-1">
-            <span class="material-symbols-rounded text-sm" :class="{ 'animate-spin': feedLoading }">refresh</span>
+            <i class="bi bi-arrow-repeat text-sm" :class="{ 'animate-spin': feedLoading }"></i>
             REFRESH
           </button>
         </div>
@@ -86,7 +110,7 @@ onUnmounted(() => {
         <!-- Own posts hint -->
         <div v-if="feedSource === 'own' && feedPosts.length > 0"
           class="mb-6 px-4 py-3 rounded-xl bg-primary/5 border border-primary/15 flex items-start gap-3">
-          <span class="material-symbols-rounded text-primary/50 text-sm mt-0.5">info</span>
+          <i class="bi bi-info-circle text-primary/50 text-sm mt-0.5"></i>
           <div>
             <p class="text-xs text-white/40">Your feed is empty because you're not following anyone yet.</p>
             <p class="text-xs text-white/40 mt-0.5">Here are your own posts. 
@@ -110,7 +134,7 @@ onUnmounted(() => {
         <!-- Error state -->
         <div v-else-if="feedError && feedPosts.length === 0"
           class="flex flex-col items-center justify-center py-20 text-center">
-          <span class="material-symbols-rounded icon-filled text-red-400/30 mb-4" style="font-size: 3rem">error</span>
+          <i class="bi bi-exclamation-triangle-fill text-red-400/30 mb-4" style="font-size: 3rem"></i>
           <p class="text-white/40 font-bold tracking-wider text-sm mb-2">COULDN'T LOAD FEED</p>
           <p class="text-white/20 text-xs mb-4">{{ feedError }}</p>
           <button @click="loadFeed(false)"
@@ -123,7 +147,7 @@ onUnmounted(() => {
         <!-- Empty state -->
         <div v-else-if="!feedLoading && feedPosts.length === 0"
           class="flex flex-col items-center justify-center py-20 text-center">
-          <span class="material-symbols-rounded icon-filled text-white/10 mb-4" style="font-size: 4rem">dynamic_feed</span>
+          <i class="bi bi-collection text-white/10 mb-4" style="font-size: 4rem"></i>
           <p class="text-white/30 font-bold tracking-widest text-sm mb-1">YOUR FEED IS EMPTY</p>
           <p class="text-white/20 text-xs">Follow some users to see their posts here.</p>
           <router-link to="/explore"
@@ -149,7 +173,7 @@ onUnmounted(() => {
                 hover:border-primary/40 transition-colors"
                 @click="navigateToProfile(post.user?.username)">
                 <img v-if="post.user?.avatar_url" :src="post.user.avatar_url" class="w-full h-full object-cover" />
-                <span v-else class="material-symbols-rounded icon-filled text-white/30">person</span>
+                <i v-else class="bi bi-person-fill text-white/30"></i>
               </div>
               <div class="flex-1 min-w-0">
                 <p class="text-sm font-black tracking-wider text-white cursor-pointer hover:text-primary transition-colors"
@@ -158,10 +182,41 @@ onUnmounted(() => {
                 </p>
                 <p class="text-xs text-white/25 font-bold">{{ timeAgo(post.created_at) }}</p>
               </div>
-              <button class="w-8 h-8 flex items-center justify-center rounded-lg
-                text-white/30 hover:text-white hover:bg-white/5 transition-all">
-                <span class="material-symbols-rounded text-xl">more_vert</span>
-              </button>
+              <div class="relative post-menu-container">
+                <button @click.stop="toggleMenu(post.id)" 
+                  class="w-8 h-8 flex items-center justify-center rounded-lg
+                  text-white/30 hover:text-white hover:bg-white/5 transition-all"
+                  :class="{ 'bg-white/10 text-white': activeMenuPostId === post.id }">
+                  <i class="bi bi-three-dots-vertical text-xl"></i>
+                </button>
+
+                <!-- Dropdown Menu -->
+                <Transition name="fade-scale">
+                  <div v-if="activeMenuPostId === post.id" 
+                    class="absolute right-0 mt-2 w-48 bg-[#1a1b23] border border-white/10 rounded-xl shadow-2xl z-[100] overflow-hidden"
+                    @click="activeMenuPostId = null">
+                    <button @click="router.push(`/profile/${post.user?.username}`)"
+                      class="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors text-left">
+                      <i class="bi bi-person-badge"></i>
+                      <span>Show the creator</span>
+                    </button>
+                    
+                    <button v-if="authUser?.id === post.user_id || authUser?.id === post.user?.id" 
+                      @click="router.push(`/posts/${post.id}/edit`)"
+                      class="w-full flex items-center gap-3 px-4 py-3 text-sm text-primary/70 hover:text-primary hover:bg-primary/5 transition-colors text-left border-t border-white/5">
+                      <i class="bi bi-pencil-square"></i>
+                      <span>Edit post</span>
+                    </button>
+
+                    <button v-if="authUser?.id === post.user_id || authUser?.id === post.user?.id" 
+                      @click="handleDeletePost(post)"
+                      class="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400/70 hover:text-red-400 hover:bg-red-400/5 transition-colors text-left border-t border-white/5">
+                      <i class="bi bi-trash"></i>
+                      <span>Delete post</span>
+                    </button>
+                  </div>
+                </Transition>
+              </div>
             </div>
 
             <!-- Post Image -->
@@ -176,12 +231,11 @@ onUnmounted(() => {
             <div class="post-actions flex items-center gap-4 mt-3 mb-2">
               <button @click="toggleLike(post)"
                 class="flex items-center gap-1.5 group/like transition-all duration-200">
-                <span class="material-symbols-rounded icon-filled text-xl transition-all duration-200"
+                <i class="bi transition-all duration-200"
                   :class="post.liked_by_me
-                    ? 'text-primary scale-110 like-pop'
-                    : 'text-white/40 group-hover/like:text-white/70 group-hover/like:scale-110'">
-                  favorite
-                </span>
+                    ? 'bi-heart-fill text-primary scale-110 like-pop'
+                    : 'bi-heart text-white/40 group-hover/like:text-white/70 group-hover/like:scale-110'">
+                </i>
                 <span class="text-sm font-bold"
                   :class="post.liked_by_me ? 'text-primary' : 'text-white/50'">
                   {{ formatK(post.likes_count) }}
@@ -189,14 +243,14 @@ onUnmounted(() => {
               </button>
 
               <button @click="$router.push(`/posts/${post.id}`)" class="flex items-center gap-1.5 group/cmt">
-                <span class="material-symbols-rounded text-xl text-white/40
-                  group-hover/cmt:text-white/70 transition-colors">chat_bubble</span>
+                <i class="bi bi-chat text-xl text-white/40
+                  group-hover/cmt:text-white/70 transition-colors"></i>
                 <span class="text-sm font-bold text-white/50">{{ post.comments_count || 0 }}</span>
               </button>
 
               <button class="flex items-center justify-center w-8 h-8 rounded-lg
                 text-white/40 hover:text-white/70 transition-colors">
-                <span class="material-symbols-rounded icon-filled text-xl">send</span>
+                <i class="bi bi-send-fill text-xl"></i>
               </button>
             </div>
 
@@ -214,12 +268,12 @@ onUnmounted(() => {
 
           <!-- Loading more -->
           <div v-if="loadingMore" class="flex justify-center py-6">
-            <span class="material-symbols-rounded text-primary text-2xl animate-spin">autorenew</span>
+            <i class="bi bi-arrow-repeat text-primary text-2xl animate-spin"></i>
           </div>
 
           <!-- End of feed -->
           <div v-if="!hasMore && feedPosts.length > 0" class="flex flex-col items-center py-8 text-center">
-            <span class="material-symbols-rounded icon-filled text-white/10 mb-2" style="font-size: 2rem">check_circle</span>
+            <i class="bi bi-check-circle-fill text-white/10 mb-2" style="font-size: 2rem"></i>
             <p class="text-white/25 text-xs font-bold tracking-widest">YOU'RE ALL CAUGHT UP</p>
           </div>
         </div>
@@ -233,7 +287,7 @@ onUnmounted(() => {
             class="w-11 h-11 rounded-xl bg-surface border-2 border-primary/30
               flex items-center justify-center overflow-hidden hover:border-primary/60 transition-colors">
             <img v-if="authUser.avatar_url" :src="authUser.avatar_url" class="w-full h-full object-cover" />
-            <span v-else class="material-symbols-rounded icon-filled text-white/30 text-xl">person</span>
+            <i v-else class="bi bi-person-fill text-white/30 text-xl"></i>
           </router-link>
           <div class="flex-1 min-w-0">
             <p class="text-sm font-black text-white truncate">{{ authUser.username || authUser.name }}</p>
@@ -294,4 +348,15 @@ aside {
   50%      { opacity: 0.7; }
 }
 .animate-pulse { animation: pulse 1.5s ease-in-out infinite; }
+
+/* ─── Menu Transition ─── */
+.fade-scale-enter-active,
+.fade-scale-leave-active {
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.fade-scale-enter-from,
+.fade-scale-leave-to {
+  opacity: 0;
+  transform: scale(0.9) translateY(-10px);
+}
 </style>

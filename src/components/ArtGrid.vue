@@ -23,16 +23,16 @@ defineProps({
       <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-4">
         <div class="flex justify-end">
           <button class="text-white hover:text-primary transition-colors">
-            <span class="material-symbols-rounded">bookmark</span>
+            <i class="bi bi-bookmark"></i>
           </button>
         </div>
         <div class="flex items-center gap-4 text-white">
           <div class="flex items-center gap-1">
-            <span class="material-symbols-rounded icon-filled text-sm">favorite</span>
+            <i class="bi bi-heart-fill text-sm"></i>
             <span class="text-xs font-bold">1.2k</span>
           </div>
           <div class="flex items-center gap-1">
-            <span class="material-symbols-rounded icon-filled text-sm">chat_bubble</span>
+            <i class="bi bi-chat-fill text-sm"></i>
             <span class="text-xs font-bold">48</span>
           </div>
         </div>

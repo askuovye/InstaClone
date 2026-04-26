@@ -107,6 +107,10 @@ export const useFeedStore = defineStore('feed', {
       }
     },
 
+    removePost(postId) {
+      this.posts = this.posts.filter(p => p.id !== postId)
+    },
+
     reset() {
       this.posts = []
       this.nextCursor = null

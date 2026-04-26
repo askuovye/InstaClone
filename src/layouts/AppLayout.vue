@@ -12,11 +12,11 @@ const { user: authUser } = storeToRefs(authStore)
 const { logout } = authStore
 
 const navItems = [
-  { key: 'home', icon: 'home', label: 'HOME', to: '/feed' },
-  { key: 'explore', icon: 'explore', label: 'EXPLORE', to: '/discover' },
-  { key: 'create', icon: 'add_circle', label: 'CREATE', to: '/create' },
-  { key: 'alerts', icon: 'notifications', label: 'ALERTS', to: '/notifications' },
-  { key: 'profile', icon: 'person', label: 'PROFILE', to: '/profile' },
+  { key: 'home', icon: 'bi-house', label: 'HOME', to: '/feed' },
+  { key: 'explore', icon: 'bi-compass', label: 'EXPLORE', to: '/discover' },
+  { key: 'create', icon: 'bi-plus-circle', label: 'CREATE', to: '/create' },
+  { key: 'alerts', icon: 'bi-bell', label: 'ALERTS', to: '/notifications' },
+  { key: 'profile', icon: 'bi-person', label: 'PROFILE', to: '/profile' },
 ]
 
 const activeNavKey = computed(() => {
@@ -125,10 +125,8 @@ function onSearchBlur() {
       <!-- Search with dropdown -->
       <div class="flex-1 max-w-xs ml-6 relative">
         <div class="relative">
-          <span class="material-symbols-rounded absolute left-3 top-1/2 -translate-y-1/2 text-sm transition-colors"
-            :class="isSearching ? 'text-primary' : 'text-white/25'">
-            {{ isSearching ? 'autorenew' : 'search' }}
-          </span>
+          <i class="bi absolute left-3 top-1/2 -translate-y-1/2 text-sm transition-colors"
+            :class="isSearching ? 'bi-arrow-repeat animate-spin text-primary' : 'bi-search text-white/25'"></i>
           <input v-model="searchQuery" type="text" placeholder="Search profiles..."
             class="w-full bg-surface/80 border border-border rounded-lg
               pl-9 pr-4 py-2 text-sm text-white placeholder-white/20 outline-none
@@ -148,13 +146,13 @@ function onSearchBlur() {
               <div class="w-9 h-9 rounded-full overflow-hidden bg-dark border border-border
                 flex items-center justify-center flex-shrink-0">
                 <img v-if="user.avatar_url" :src="user.avatar_url" class="w-full h-full object-cover" />
-                <span v-else class="material-symbols-rounded icon-filled text-white/30 text-sm">person</span>
+                <i v-else class="bi bi-person-fill text-white/30 text-sm"></i>
               </div>
               <div class="flex-1 min-w-0">
                 <p class="text-sm font-bold text-white truncate">{{ user.username || user.name }}</p>
                 <p class="text-xs text-white/30 truncate">{{ user.name }}</p>
               </div>
-              <span class="material-symbols-rounded text-white/20 text-sm">chevron_right</span>
+              <i class="bi bi-chevron-right text-white/20 text-sm"></i>
             </div>
           </div>
         </Transition>
@@ -166,14 +164,14 @@ function onSearchBlur() {
           class="submit-btn flex items-center gap-1.5 px-4 py-2 bg-primary text-black
             font-black text-xs tracking-widest rounded-lg hover:bg-primary/90
             transition-all duration-200 hover:shadow-[0_0_20px_rgba(5,204,71,0.4)]">
-          <span class="material-symbols-rounded icon-filled text-sm">add_circle</span>
+          <i class="bi bi-plus-circle-fill text-sm"></i>
           New Post
         </router-link>
 
         <router-link to="/notifications"
           class="relative w-9 h-9 rounded-full bg-surface border border-border
             flex items-center justify-center hover:border-white/30 transition-colors">
-          <span class="material-symbols-rounded text-white/50 text-xl">notifications</span>
+          <i class="bi bi-bell text-white/50 text-xl"></i>
           <Transition name="badge-pop">
             <span v-if="showBadge"
               class="notif-badge absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full
@@ -188,7 +186,7 @@ function onSearchBlur() {
           class="w-9 h-9 rounded-full bg-surface border-2 border-primary/40
             flex items-center justify-center overflow-hidden hover:border-primary/70 transition-colors">
           <img v-if="authUser?.avatar_url" :src="authUser.avatar_url" class="w-full h-full object-cover" />
-          <span v-else class="material-symbols-rounded icon-filled text-white/40">person</span>
+          <i v-else class="bi bi-person-fill text-white/40"></i>
         </router-link>
       </div>
     </nav>
@@ -200,14 +198,14 @@ function onSearchBlur() {
       <router-link to="/" class="brand-wordmark font-black text-lg tracking-tight text-primary italic">KINETIC</router-link>
       <div class="flex items-center gap-2">
         <router-link to="/notifications" class="relative w-8 h-8 flex items-center justify-center text-white/50">
-          <span class="material-symbols-rounded text-xl">notifications</span>
+          <i class="bi bi-bell text-xl"></i>
           <span v-if="showBadge"
             class="notif-badge absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] rounded-full
               text-[8px] font-black flex items-center justify-center px-0.5
               bg-primary text-black shadow-[0_0_6px_rgba(5,204,71,0.5)]">{{ unreadCount > 9 ? '9+' : unreadCount }}</span>
         </router-link>
         <router-link to="/create" class="w-8 h-8 flex items-center justify-center text-primary">
-          <span class="material-symbols-rounded icon-filled text-2xl">add_circle</span>
+          <i class="bi bi-plus-circle-fill text-2xl"></i>
         </router-link>
       </div>
     </header>
@@ -225,9 +223,8 @@ function onSearchBlur() {
             :class="activeNavKey === item.key
               ? 'bg-primary/10 text-primary border border-primary/20'
               : 'text-white/40 hover:text-white hover:bg-white/5'">
-            <span class="material-symbols-rounded icon-filled text-xl transition-transform duration-200 group-hover:scale-110">
-              {{ item.icon }}
-            </span>
+            <i class="bi text-xl transition-transform duration-200 group-hover:scale-110"
+              :class="activeNavKey === item.key ? item.icon + '-fill' : item.icon"></i>
             {{ item.label }}
             <!-- Notification badge on sidebar alerts -->
             <span v-if="item.key === 'alerts' && showBadge"
@@ -242,7 +239,7 @@ function onSearchBlur() {
             class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl
               bg-primary text-black font-black text-xs tracking-widest
               hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(5,204,71,0.35)] transition-all duration-200">
-            <span class="material-symbols-rounded icon-filled text-base">add</span>
+            <i class="bi bi-plus text-base"></i>
             NEW POST
           </router-link>
         </div>
@@ -253,7 +250,7 @@ function onSearchBlur() {
             class="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl
               text-white/30 hover:text-red-400 hover:bg-red-500/5
               font-bold text-sm tracking-wider transition-all duration-200">
-            <span class="material-symbols-rounded text-xl">logout</span>
+            <i class="bi bi-box-arrow-right text-xl"></i>
             LOGOUT
           </button>
         </div>
@@ -275,10 +272,8 @@ function onSearchBlur() {
         :class="activeNavKey === item.key
           ? 'text-primary'
           : 'text-white/30 hover:text-white/60'">
-        <span class="material-symbols-rounded icon-filled text-2xl transition-all duration-200"
-          :class="activeNavKey === item.key ? 'scale-110' : ''">
-          {{ item.icon }}
-        </span>
+        <i class="bi text-2xl transition-all duration-200"
+          :class="activeNavKey === item.key ? item.icon + '-fill scale-110' : item.icon"></i>
         <span class="text-[9px]">{{ item.label }}</span>
         <span v-if="activeNavKey === item.key"
           class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary"></span>

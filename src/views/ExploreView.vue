@@ -169,7 +169,7 @@ onMounted(async () => {
           <button @click="loadExplorePosts" :disabled="isLoading"
             class="text-xs font-bold tracking-wider text-primary/60 hover:text-primary transition-colors
               disabled:opacity-50 flex items-center gap-1">
-            <span class="material-symbols-rounded text-sm" :class="{ 'animate-spin': isLoading }">refresh</span>
+            <i class="bi bi-arrow-repeat text-sm" :class="{ 'animate-spin': isLoading }"></i>
             SHUFFLE
           </button>
         </div>
@@ -198,7 +198,7 @@ onMounted(async () => {
         <!-- Error -->
         <div v-else-if="loadError"
           class="flex flex-col items-center justify-center py-24 text-center">
-          <span class="material-symbols-rounded icon-filled text-red-400/30 mb-4" style="font-size: 3rem">error</span>
+          <i class="bi bi-exclamation-triangle-fill text-red-400/30 mb-4" style="font-size: 3rem"></i>
           <p class="text-white/40 font-bold tracking-wider text-sm mb-4">{{ loadError }}</p>
           <button @click="loadExplorePosts"
             class="px-5 py-2 bg-primary/10 border border-primary/30 text-primary rounded-lg
@@ -212,7 +212,7 @@ onMounted(async () => {
           class="flex flex-col items-center justify-center py-24 text-center">
           <div class="w-20 h-20 rounded-2xl bg-surface/60 border border-border
             flex items-center justify-center mb-6">
-            <span class="material-symbols-rounded text-white/20" style="font-size: 2.5rem">photo_library</span>
+            <i class="bi bi-images text-white/20" style="font-size: 2.5rem"></i>
           </div>
           <h2 class="text-lg font-black tracking-widest text-white/40 mb-2">NO POSTS YET</h2>
           <p class="text-sm text-white/20 max-w-sm">
@@ -246,7 +246,7 @@ onMounted(async () => {
               <img v-if="post.image_url" :src="post.image_url"
                 class="w-full h-full object-cover" :alt="post.caption || 'Post'" loading="lazy" />
               <div v-else class="w-full h-full bg-surface flex items-center justify-center">
-                <span class="material-symbols-rounded text-white/10" style="font-size: 3rem">image</span>
+                <i class="bi bi-image text-white/10" style="font-size: 3rem"></i>
               </div>
             </div>
 
@@ -266,17 +266,16 @@ onMounted(async () => {
                 <!-- Like + Comment counts -->
                 <div class="flex items-center gap-6">
                   <button @click.stop="toggleLike(post)" class="flex items-center gap-2 group/like">
-                    <span class="material-symbols-rounded icon-filled text-2xl transition-all duration-200"
-                      :class="post.liked_by_me ? 'text-primary scale-110' : 'text-white group-hover/like:scale-110'">
-                      favorite
-                    </span>
+                    <i class="bi transition-all duration-200"
+                      :class="post.liked_by_me ? 'bi-heart-fill text-primary scale-110' : 'bi-heart text-white group-hover/like:scale-110'">
+                    </i>
                     <span class="text-sm font-black" :class="post.liked_by_me ? 'text-primary' : 'text-white'">
                       {{ formatK(post.likes_count) }}
                     </span>
                   </button>
 
                   <div class="flex items-center gap-2">
-                    <span class="material-symbols-rounded text-2xl text-white">chat_bubble</span>
+                    <i class="bi bi-chat-fill text-2xl text-white"></i>
                     <span class="text-sm font-black text-white">{{ post.comments_count || 0 }}</span>
                   </div>
                 </div>
@@ -286,7 +285,7 @@ onMounted(async () => {
                   @click.stop="goToProfile(post.user?.username)">
                   <div class="w-7 h-7 rounded-full overflow-hidden bg-surface border border-border flex items-center justify-center flex-shrink-0">
                     <img v-if="post.user?.avatar_url" :src="post.user.avatar_url" class="w-full h-full object-cover" />
-                    <span v-else class="material-symbols-rounded icon-filled text-white/30 text-sm">person</span>
+                    <i v-else class="bi bi-person-fill text-white/30 text-sm"></i>
                   </div>
                   <span class="text-xs font-bold text-white/80">{{ post.user?.username || 'Unknown' }}</span>
                 </div>

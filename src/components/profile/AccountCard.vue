@@ -37,7 +37,7 @@ function goToProfile() {
     <div class="flex items-center gap-4 flex-1 min-w-0 cursor-pointer group" @click="goToProfile">
       <div class="w-12 h-12 rounded-full overflow-hidden bg-dark flex items-center justify-center border border-border flex-shrink-0 group-hover:border-primary/40 transition-colors">
         <img v-if="user.avatar_url" :src="user.avatar_url" class="w-full h-full object-cover" />
-        <span v-else class="material-symbols-rounded icon-filled text-white/30 text-xl">person</span>
+        <i v-else class="bi bi-person-fill text-white/30 text-xl"></i>
       </div>
       <div class="flex-1 min-w-0">
         <p class="text-sm font-bold text-white tracking-wide truncate group-hover:text-primary transition-colors">{{ getAuthorUsername(user) }}</p>

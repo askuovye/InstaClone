@@ -12,7 +12,7 @@ defineProps({
     <!-- Add Story Button -->
     <div class="flex flex-col items-center gap-2 snap-start shrink-0">
       <div class="relative w-16 h-16 rounded-full bg-surface border border-border flex items-center justify-center cursor-pointer">
-        <span class="material-symbols-rounded text-gray-400 !text-3xl">add</span>
+        <i class="bi bi-plus text-gray-400 !text-3xl"></i>
         <div class="absolute bottom-0 right-0 w-4 h-4 bg-primary rounded-full border-2 border-dark"></div>
       </div>
       <span class="text-xs text-gray-400 font-medium">You</span>

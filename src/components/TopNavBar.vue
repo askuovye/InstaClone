@@ -1,7 +1,9 @@
 <script setup>
-import { useAuth } from '../composables/useAuth'
+import { useAuthStore } from '../stores/auth'
+import { storeToRefs } from 'pinia'
 
-const { user } = useAuth()
+const authStore = useAuthStore()
+const { user } = storeToRefs(authStore)
 </script>
 
 <template>
@@ -11,7 +13,7 @@ const { user } = useAuth()
       
       <!-- Search Input -->
       <div class="hidden md:flex relative items-center">
-        <span class="material-symbols-rounded absolute left-3 text-gray-400">search</span>
+        <i class="bi bi-search absolute left-3 text-gray-400"></i>
         <input 
           type="text" 
           placeholder="Search art, artists, tags..." 
@@ -22,18 +24,18 @@ const { user } = useAuth()
 
     <div class="flex items-center gap-4">
       <router-link to="/create" class="hidden md:flex items-center gap-2 bg-primary text-black px-4 py-2 rounded-full font-semibold hover-scale">
-        <span class="material-symbols-rounded icon-filled">add_circle</span>
+        <i class="bi bi-plus-circle-fill"></i>
         <span>Upload</span>
       </router-link>
       
       <router-link to="/notifications" class="relative text-gray-300 hover:text-white transition-colors">
-        <span class="material-symbols-rounded">notifications</span>
+        <i class="bi bi-bell"></i>
         <span class="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full"></span>
       </router-link>
 
       <router-link to="/profile" class="w-8 h-8 rounded-full overflow-hidden border-2 border-transparent hover:border-primary transition-colors bg-surface flex items-center justify-center">
         <img v-if="user?.avatar_url" :src="user.avatar_url" alt="User Avatar" class="w-full h-full object-cover">
-        <span v-else class="material-symbols-rounded text-gray-400 text-lg">person</span>
+        <i v-else class="bi bi-person-fill text-gray-400 text-lg"></i>
       </router-link>
     </div>
   </header>

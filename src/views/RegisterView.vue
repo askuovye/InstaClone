@@ -163,7 +163,7 @@ async function handleRegister() {
 
         <!-- Global Error -->
         <div v-if="globalError" class="flex items-center gap-2 bg-red-500/10 border border-red-500/30 text-[#ff6b6b] text-[0.82rem] px-4 py-3 rounded-lg mb-6">
-          <span class="material-symbols-rounded text-[1.1rem]">error</span>
+          <i class="bi bi-exclamation-triangle-fill text-[1.1rem]"></i>
           {{ globalError }}
         </div>
 
@@ -171,7 +171,7 @@ async function handleRegister() {
         <div class="mb-4">
           <label class="block text-[0.62rem] font-bold tracking-[0.15em] text-white/40 mb-1.5">DISPLAY NAME</label>
           <div class="relative flex items-center">
-            <span class="material-symbols-rounded absolute left-3.5 text-white/25 text-base pointer-events-none">person</span>
+          <i class="bi bi-person absolute left-3.5 text-white/25 text-base pointer-events-none"></i>
             <input
               v-model="name"
               type="text"
@@ -200,7 +200,7 @@ async function handleRegister() {
               placeholder="creator_handle"
               autocomplete="username"
             />
-            <span v-if="username && usernameValid" class="material-symbols-rounded absolute right-3 text-primary text-[1.1rem]">check_circle</span>
+            <i v-if="username && usernameValid" class="bi bi-check-circle-fill absolute right-3 text-primary text-[1.1rem]"></i>
           </div>
           <p v-if="errors.username" class="text-[0.72rem] text-[#ff6b6b] mt-1.5 mb-0">{{ errors.username }}</p>
         </div>
@@ -209,7 +209,7 @@ async function handleRegister() {
         <div class="mb-4">
           <label class="block text-[0.62rem] font-bold tracking-[0.15em] text-white/40 mb-1.5">EMAIL ADDRESS</label>
           <div class="relative flex items-center">
-            <span class="material-symbols-rounded absolute left-3.5 text-white/25 text-base pointer-events-none">alternate_email</span>
+            <i class="bi bi-envelope absolute left-3.5 text-white/25 text-base pointer-events-none"></i>
             <input
               v-model="email"
               type="email"
@@ -226,7 +226,7 @@ async function handleRegister() {
         <div class="mb-4">
           <label class="block text-[0.62rem] font-bold tracking-[0.15em] text-white/40 mb-1.5">PASSWORD</label>
           <div class="relative flex items-center">
-            <span class="material-symbols-rounded absolute left-3.5 text-white/25 text-base pointer-events-none">lock</span>
+            <i class="bi bi-lock absolute left-3.5 text-white/25 text-base pointer-events-none"></i>
             <input
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
@@ -236,7 +236,7 @@ async function handleRegister() {
               autocomplete="new-password"
             />
             <button class="absolute right-3 bg-transparent border-none text-white/30 cursor-pointer p-0.5 flex hover:text-white/70" @click="showPassword = !showPassword" type="button">
-              <span class="material-symbols-rounded">{{ showPassword ? 'visibility_off' : 'visibility' }}</span>
+              <i class="bi" :class="showPassword ? 'bi-eye-slash' : 'bi-eye'"></i>
             </button>
           </div>
           <!-- Strength meter -->
@@ -256,7 +256,7 @@ async function handleRegister() {
         <div class="mb-4">
           <label class="block text-[0.62rem] font-bold tracking-[0.15em] text-white/40 mb-1.5">CONFIRM PASSWORD</label>
           <div class="relative flex items-center">
-            <span class="material-symbols-rounded absolute left-3.5 text-white/25 text-base pointer-events-none">lock_reset</span>
+            <i class="bi bi-shield-lock absolute left-3.5 text-white/25 text-base pointer-events-none"></i>
             <input
               v-model="passwordConfirmation"
               :type="showConfirm ? 'text' : 'password'"
@@ -270,7 +270,7 @@ async function handleRegister() {
               @keyup.enter="handleRegister"
             />
             <button class="absolute right-3 bg-transparent border-none text-white/30 cursor-pointer p-0.5 flex hover:text-white/70" @click="showConfirm = !showConfirm" type="button">
-              <span class="material-symbols-rounded">{{ showConfirm ? 'visibility_off' : 'visibility' }}</span>
+              <i class="bi" :class="showConfirm ? 'bi-eye-slash' : 'bi-eye'"></i>
             </button>
           </div>
           <p v-if="errors.passwordConfirmation" class="text-[0.72rem] text-[#ff6b6b] mt-1.5 mb-0">{{ errors.passwordConfirmation }}</p>
@@ -282,7 +282,7 @@ async function handleRegister() {
           @click="handleRegister"
           :disabled="isLoading"
         >
-          <span v-if="isLoading" class="material-symbols-rounded animate-spin">autorenew</span>
+          <i v-if="isLoading" class="bi bi-arrow-repeat animate-spin"></i>
           <span v-else>JOIN THE COLLECTIVE</span>
         </button>
 

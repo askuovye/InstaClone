@@ -38,9 +38,9 @@ const filters = [
 
 // ─── Icon + color per notification type ───────────────────
 const typeConfig = {
-  like:    { icon: 'favorite',    label: 'liked your post' },
-  comment: { icon: 'chat_bubble', label: 'commented on your post' },
-  follow:  { icon: 'person_add',  label: 'started following you' },
+  like:    { icon: 'bi-heart-fill',    label: 'liked your post' },
+  comment: { icon: 'bi-chat-fill',     label: 'commented on your post' },
+  follow:  { icon: 'bi-person-plus-fill',  label: 'started following you' },
 }
 
 // ─── Derived ──────────────────────────────────────────────
@@ -208,7 +208,7 @@ onMounted(async () => {
       <!-- ── Error ── -->
       <div v-else-if="loadError"
         class="flex flex-col items-center justify-center py-24 text-center">
-        <span class="material-symbols-rounded icon-filled text-red-400/30 mb-4" style="font-size: 3rem">error</span>
+        <i class="bi bi-exclamation-triangle-fill text-red-400/30 mb-4" style="font-size: 3rem"></i>
         <p class="text-white/40 font-bold tracking-wider text-sm mb-4">{{ loadError }}</p>
         <button @click="loadNotifications()"
           class="px-5 py-2 bg-primary/10 border border-primary/30 text-primary rounded-lg
@@ -222,7 +222,7 @@ onMounted(async () => {
         class="flex flex-col items-center justify-center py-24 text-center">
         <div class="w-16 h-16 rounded-2xl bg-surface border border-border
           flex items-center justify-center mb-4">
-          <span class="material-symbols-rounded text-white/15 text-3xl">notifications_off</span>
+          <i class="bi bi-bell-slash text-white/15 text-3xl"></i>
         </div>
         <p class="text-sm font-black tracking-widest text-white/25">NO NOTIFICATIONS YET</p>
         <p class="text-xs text-white/15 mt-1">Interact with posts and users to receive notifications</p>
@@ -237,7 +237,7 @@ onMounted(async () => {
           class="flex flex-col items-center justify-center py-16 text-center">
           <div class="w-14 h-14 rounded-2xl bg-surface border border-border
             flex items-center justify-center mb-3">
-            <span class="material-symbols-rounded text-white/15 text-2xl">filter_list_off</span>
+            <i class="bi bi-funnel text-white/15 text-2xl"></i>
           </div>
           <p class="text-xs font-black tracking-widest text-white/25">NO {{ activeFilter.toUpperCase() }} NOTIFICATIONS</p>
         </div>
@@ -289,14 +289,12 @@ onMounted(async () => {
                       @click.stop="goToProfile(notif.actor?.username)">
                       <img v-if="notif.actor?.avatar_url" :src="notif.actor.avatar_url"
                         class="w-full h-full object-cover" />
-                      <span v-else class="material-symbols-rounded icon-filled text-white/25 text-2xl">person</span>
+                      <i v-else class="bi bi-person-fill text-white/25 text-2xl"></i>
                     </div>
                     <!-- Type badge -->
                     <div class="absolute -bottom-1.5 -left-1.5 w-6 h-6 rounded-full flex items-center justify-center"
                       style="background: #05cc47; border: 2px solid #0d0e14;">
-                      <span class="material-symbols-rounded icon-filled text-black" style="font-size: 12px;">
-                        {{ typeConfig[notif.type]?.icon || 'notifications' }}
-                      </span>
+                      <i class="bi text-black" :class="typeConfig[notif.type]?.icon || 'bi-bell-fill'" style="font-size: 12px;"></i>
                     </div>
                   </div>
 
@@ -350,7 +348,7 @@ onMounted(async () => {
                         style="background: linear-gradient(135deg, rgba(5,204,71,0.05), rgba(5,204,71,0.15));">
                         <div class="scanlines absolute inset-0 opacity-20"></div>
                         <div class="absolute inset-0 flex items-center justify-center">
-                          <span class="material-symbols-rounded text-primary/30 text-lg">image</span>
+                          <i class="bi bi-image text-primary/30 text-lg"></i>
                         </div>
                       </div>
                     </div>
@@ -368,15 +366,15 @@ onMounted(async () => {
               text-white/40 border border-border transition-all duration-300
               hover:text-white/70 hover:bg-white/5
               disabled:opacity-40">
-            <span v-if="loadingMore" class="material-symbols-rounded text-sm animate-spin">autorenew</span>
+            <i v-if="loadingMore" class="bi bi-arrow-repeat text-sm animate-spin"></i>
             {{ loadingMore ? 'Loading...' : 'Load More' }}
-            <span v-if="!loadingMore" class="material-symbols-rounded text-xl">expand_more</span>
+            <i v-if="!loadingMore" class="bi bi-chevron-down text-xl"></i>
           </button>
         </div>
 
         <!-- All caught up -->
         <div v-if="!hasMore && filteredNotifications.length > 0" class="flex flex-col items-center py-6 text-center">
-          <span class="material-symbols-rounded icon-filled text-white/10 mb-2" style="font-size: 1.5rem">check_circle</span>
+          <i class="bi bi-check-circle-fill text-white/10 mb-2" style="font-size: 1.5rem"></i>
           <p class="text-white/20 text-xs font-bold tracking-widest">THAT'S EVERYTHING</p>
         </div>
       </div>

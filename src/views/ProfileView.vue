@@ -172,7 +172,7 @@ async function loadPosts(reset = false) {
 
     // Build activity from recent posts
     if (reset && data.data.length > 0) {
-      const icons = ['upload', 'palette', 'star']
+      const icons = ['upload', 'palette', 'star-fill']
       const colors = ['#4090ff', '#05cc47', '#f0c040']
       activity.value = data.data.slice(0, 3).map((p, i) => ({
         icon: icons[i % 3],
@@ -461,9 +461,7 @@ function showToast(message, type = 'success') {
         :class="toastType === 'success'
           ? 'bg-primary/15 border-primary/40 text-primary'
           : 'bg-red-500/15 border-red-500/40 text-red-400'">
-        <span class="material-symbols-rounded icon-filled text-lg">
-          {{ toastType === 'success' ? 'check_circle' : 'error' }}
-        </span>
+        <i class="bi text-lg" :class="toastType === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'"></i>
         <span class="text-sm font-bold tracking-wide">{{ toastMessage }}</span>
       </div>
     </Transition>
@@ -476,7 +474,7 @@ function showToast(message, type = 'success') {
         <div class="w-8 h-8 rounded-lg overflow-hidden border border-border flex-shrink-0
           flex items-center justify-center bg-surface">
           <img v-if="profile.avatar_url" :src="profile.avatar_url" class="w-full h-full object-cover" />
-          <span v-else class="material-symbols-rounded icon-filled text-primary text-sm">person</span>
+          <i v-else class="bi bi-person-fill text-primary text-sm"></i>
         </div>
         <span class="font-black text-sm tracking-widest">{{ profile.username }}</span>
         <div class="flex gap-6 ml-4 text-xs text-white/40 font-bold tracking-wider">
@@ -486,7 +484,7 @@ function showToast(message, type = 'success') {
         <button @click="toggleWatch"
           class="ml-auto btn-watch-sm flex items-center gap-1.5 px-4 py-1.5 rounded font-black text-xs tracking-widest"
           :class="isWatching ? 'bg-surface border border-border text-white/60' : 'bg-primary text-black'">
-          <span class="material-symbols-rounded text-sm">{{ isWatching ? 'visibility_off' : 'visibility' }}</span>
+          <i class="bi text-sm" :class="isWatching ? 'bi-eye-slash' : 'bi-eye'"></i>
           {{ isWatching ? 'UNWATCH' : 'WATCH' }}
         </button>
       </div>
@@ -532,7 +530,7 @@ function showToast(message, type = 'success') {
               <!-- Show preview or actual avatar -->
               <img v-if="avatarPreview" :src="avatarPreview" class="w-full h-full object-cover" />
               <img v-else-if="profile.avatar_url" :src="profile.avatar_url" class="w-full h-full object-cover" />
-              <span v-else class="material-symbols-rounded icon-filled text-white/30" style="font-size: 3rem">person</span>
+              <i v-else class="bi bi-person-fill text-white/30" style="font-size: 3rem"></i>
               <!-- Avatar shimmer overlay -->
               <div class="avatar-shimmer absolute inset-0"></div>
               <!-- Camera overlay for own profile -->
@@ -540,9 +538,9 @@ function showToast(message, type = 'success') {
                 class="avatar-camera-overlay absolute inset-0 flex flex-col items-center justify-center
                   bg-black/60 backdrop-blur-sm opacity-0 group-hover/avatar:opacity-100
                   transition-all duration-300 rounded-xl">
-                <span v-if="avatarUploading" class="material-symbols-rounded text-white text-2xl animate-spin">autorenew</span>
+                <i v-if="avatarUploading" class="bi bi-arrow-repeat text-white text-2xl animate-spin"></i>
                 <template v-else>
-                  <span class="material-symbols-rounded icon-filled text-white text-2xl mb-1">photo_camera</span>
+                  <i class="bi bi-camera-fill text-white text-2xl mb-1"></i>
                   <span class="text-white/80 text-[10px] font-bold tracking-widest">CHANGE</span>
                 </template>
               </div>
@@ -570,9 +568,7 @@ function showToast(message, type = 'success') {
               :class="isWatching
                 ? 'bg-surface border border-border text-white/60 hover:border-white/30'
                 : 'bg-primary text-black hover:bg-primary/90 watch-glow'">
-              <span class="material-symbols-rounded icon-filled text-base">
-                {{ isWatching ? 'person_remove' : 'person_add' }}
-              </span>
+              <i class="bi text-base" :class="isWatching ? 'bi-person-dash-fill' : 'bi-person-plus-fill'"></i>
               {{ isWatching ? 'WATCHING' : 'WATCH' }}
             </button>
 
@@ -580,7 +576,7 @@ function showToast(message, type = 'success') {
               class="flex items-center gap-2 px-5 py-2.5 rounded font-black text-sm tracking-widest
                 bg-surface border border-border text-white/70
                 hover:border-white/30 hover:text-white transition-all duration-200">
-              <span class="material-symbols-rounded text-base">mail</span>
+              <i class="bi bi-envelope text-base"></i>
               MESSAGE
             </button>
 
@@ -588,7 +584,7 @@ function showToast(message, type = 'success') {
               class="flex items-center gap-2 px-5 py-2.5 rounded font-black text-sm tracking-widest
                 bg-surface border border-primary/40 text-primary
                 hover:bg-primary hover:text-black transition-all duration-200">
-              <span class="material-symbols-rounded text-base">edit</span>
+              <i class="bi bi-pencil text-base"></i>
               EDIT PROFILE
             </button>
           </div>
@@ -629,7 +625,7 @@ function showToast(message, type = 'success') {
         <!-- About card -->
         <div class="glass-card rounded-xl border border-border bg-surface/60 p-5">
           <div class="flex items-center gap-2 mb-3">
-            <span class="material-symbols-rounded text-primary text-lg">info</span>
+            <i class="bi bi-info-circle text-primary text-lg"></i>
             <h3 class="text-xs font-black tracking-widest text-white/60">ABOUT</h3>
           </div>
           <p class="text-sm text-white/55 leading-relaxed mb-5">{{ profile.bio || 'No bio yet.' }}</p>
@@ -653,7 +649,7 @@ function showToast(message, type = 'success') {
         <!-- Activity card -->
         <div class="glass-card rounded-xl border border-border bg-surface/60 p-5">
           <div class="flex items-center gap-2 mb-4">
-            <span class="material-symbols-rounded text-primary text-lg">trending_up</span>
+            <i class="bi bi-graph-up text-primary text-lg"></i>
             <h3 class="text-xs font-black tracking-widest text-white/60">ACTIVITY</h3>
           </div>
           <div class="flex flex-col gap-4">
@@ -662,8 +658,9 @@ function showToast(message, type = 'success') {
               :style="{ animationDelay: (i * 100 + 500) + 'ms' }">
               <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                 :style="{ background: act.color + '18', border: '1px solid ' + act.color + '30' }">
-                <span class="material-symbols-rounded text-sm icon-filled"
-                  :style="{ color: act.color }">{{ act.icon }}</span>
+                <i class="bi text-sm"
+                  :class="'bi-' + act.icon"
+                  :style="{ color: act.color }"></i>
               </div>
               <div>
                 <p class="text-xs text-white/60">
@@ -682,12 +679,12 @@ function showToast(message, type = 'success') {
             border border-primary/30 hover:border-primary/60 transition-all duration-300 group">
           <div class="premium-bg absolute inset-0"></div>
           <div class="relative z-10 flex items-center gap-3">
-            <span class="material-symbols-rounded icon-filled text-primary text-2xl">bolt</span>
+            <i class="bi bi-lightning-fill text-primary text-2xl"></i>
             <div>
               <p class="text-sm font-black text-white tracking-wider">Go Premium</p>
               <p class="text-xs text-white/40">Unlock advanced creator tools</p>
             </div>
-            <span class="material-symbols-rounded text-white/30 ml-auto group-hover:text-white/60 transition-colors">chevron_right</span>
+            <i class="bi bi-chevron-right text-white/30 ml-auto group-hover:text-white/60 transition-colors"></i>
           </div>
         </div>
       </aside>
@@ -723,7 +720,7 @@ function showToast(message, type = 'success') {
 
             <!-- Empty state -->
             <div v-if="galleryItems.length === 0 && !postsLoading" class="flex flex-col items-center justify-center py-24 text-center">
-              <span class="material-symbols-rounded icon-filled text-white/10 mb-4" style="font-size: 4rem">photo_library</span>
+              <i class="bi bi-images text-white/10 mb-4" style="font-size: 4rem"></i>
               <p class="text-white/30 font-bold tracking-widest text-sm">NO POSTS YET</p>
               <p class="text-white/20 text-xs mt-1">{{ isOwnProfile ? 'Start sharing your work!' : 'This user hasn\'t posted yet.' }}</p>
             </div>
@@ -749,7 +746,7 @@ function showToast(message, type = 'success') {
                 <div class="art-overlay absolute inset-0 flex flex-col items-center justify-center
                   opacity-0 group-hover:opacity-100 transition-all duration-300
                   bg-black/60 backdrop-blur-sm">
-                  <span class="material-symbols-rounded icon-filled text-white text-3xl mb-2">open_in_full</span>
+                  <i class="bi bi-arrows-fullscreen text-white text-3xl mb-2"></i>
                   <span v-if="item.caption" class="text-xs font-bold text-white/60 tracking-wider px-4 text-center line-clamp-2">{{ item.caption }}</span>
                   <span v-else class="text-xs font-bold text-white/60 tracking-wider">VIEW POST</span>
                 </div>
@@ -764,9 +761,9 @@ function showToast(message, type = 'success') {
                 text-xs font-black tracking-widest text-white/30
                 hover:border-primary/30 hover:text-primary/70 transition-all duration-300
                 flex items-center justify-center gap-2 disabled:opacity-50">
-              <span v-if="postsLoading" class="material-symbols-rounded text-sm animate-spin">autorenew</span>
+              <i v-if="postsLoading" class="bi bi-arrow-repeat text-sm animate-spin"></i>
               <template v-else>
-                <span class="material-symbols-rounded text-sm">expand_more</span>
+                <i class="bi bi-chevron-down text-sm"></i>
                 LOAD MORE POSTS
               </template>
             </button>
@@ -775,7 +772,7 @@ function showToast(message, type = 'success') {
           <!-- COLLECTIONS tab -->
           <div v-else-if="activeTab === 'collections'" key="collections" class="fade-up-enter-active">
             <div class="flex flex-col items-center justify-center py-24 text-center">
-              <span class="material-symbols-rounded icon-filled text-white/10 mb-4" style="font-size: 4rem">collections</span>
+              <i class="bi bi-collection text-white/10 mb-4" style="font-size: 4rem"></i>
               <p class="text-white/30 font-bold tracking-widest text-sm">NO COLLECTIONS YET</p>
               <p class="text-white/20 text-xs mt-1">Start curating your work into collections</p>
             </div>
@@ -788,7 +785,7 @@ function showToast(message, type = 'success') {
               <div class="flex items-start justify-between mb-6">
                 <div class="flex-1">
                   <div class="flex items-center gap-2 mb-2">
-                    <span class="material-symbols-rounded text-primary text-sm">description</span>
+                    <i class="bi bi-text-left text-primary text-sm"></i>
                     <span class="text-white/25 font-bold tracking-wider text-xs">BIO</span>
                   </div>
                   <p class="text-white/60 leading-relaxed">{{ profile.bio || 'No bio yet.' }}</p>
@@ -798,7 +795,7 @@ function showToast(message, type = 'success') {
                     text-primary/70 hover:text-primary bg-primary/5 hover:bg-primary/10
                     border border-primary/20 hover:border-primary/40
                     transition-all duration-200 flex-shrink-0 ml-4">
-                  <span class="material-symbols-rounded text-sm">edit</span>
+                  <i class="bi bi-pencil text-sm"></i>
                   EDIT
                 </button>
               </div>
@@ -832,7 +829,7 @@ function showToast(message, type = 'success') {
           <!-- Comment input -->
           <div class="flex gap-3 mb-6">
             <div class="w-9 h-9 rounded-lg bg-surface border border-border flex items-center justify-center flex-shrink-0">
-              <span class="material-symbols-rounded icon-filled text-white/30 text-sm">person</span>
+              <i class="bi bi-person-fill text-white/30 text-sm"></i>
             </div>
             <div class="flex-1">
               <textarea
@@ -860,7 +857,7 @@ function showToast(message, type = 'success') {
             <div v-for="comment in comments" :key="comment.username + comment.time"
               class="comment-card flex gap-3 group">
               <div class="w-9 h-9 rounded-lg bg-surface border border-border flex items-center justify-center flex-shrink-0 mt-0.5">
-                <span class="material-symbols-rounded icon-filled text-white/30 text-sm">person</span>
+                <i class="bi bi-person-fill text-white/30 text-sm"></i>
               </div>
               <div class="flex-1">
                 <div class="flex items-baseline gap-2 mb-1.5">
@@ -872,8 +869,8 @@ function showToast(message, type = 'success') {
                   <button @click="likeComment(comment)"
                     class="flex items-center gap-1.5 text-xs text-white/30
                       hover:text-primary transition-colors duration-150 group/like">
-                    <span class="material-symbols-rounded icon-filled text-sm
-                      group-hover/like:scale-125 transition-transform duration-150">favorite</span>
+                    <i class="bi bi-heart-fill text-sm
+                      group-hover/like:scale-125 transition-transform duration-150"></i>
                     {{ comment.likes }}
                   </button>
                   <button class="text-xs text-white/25 hover:text-white/50 font-bold tracking-wider transition-colors">
@@ -889,7 +886,7 @@ function showToast(message, type = 'success') {
             text-xs font-black tracking-widest text-white/30
             hover:border-primary/30 hover:text-primary/70 transition-all duration-300
             flex items-center justify-center gap-2">
-            <span class="material-symbols-rounded text-sm">expand_more</span>
+            <i class="bi bi-chevron-down text-sm"></i>
             LOAD MORE CONVERSATIONS
           </button>
         </div>
@@ -911,13 +908,13 @@ function showToast(message, type = 'success') {
           <!-- Modal header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-border">
             <div class="flex items-center gap-3">
-              <span class="material-symbols-rounded icon-filled text-primary text-xl">edit</span>
+              <i class="bi bi-pencil-fill text-primary text-xl"></i>
               <h2 class="text-sm font-black tracking-widest text-white">EDIT PROFILE</h2>
             </div>
             <button @click="closeEditModal"
               class="w-8 h-8 rounded-lg flex items-center justify-center
                 text-white/30 hover:text-white/70 hover:bg-white/5 transition-all duration-200">
-              <span class="material-symbols-rounded text-lg">close</span>
+              <i class="bi bi-x-lg text-lg"></i>
             </button>
           </div>
 
@@ -930,11 +927,11 @@ function showToast(message, type = 'success') {
                 @click="triggerAvatarUpload">
                 <img v-if="avatarPreview" :src="avatarPreview" class="w-full h-full object-cover" />
                 <img v-else-if="profile.avatar_url" :src="profile.avatar_url" class="w-full h-full object-cover" />
-                <span v-else class="material-symbols-rounded icon-filled text-white/30 text-2xl">person</span>
+                <i v-else class="bi bi-person-fill text-white/30 text-2xl"></i>
                 <div class="absolute inset-0 bg-black/50 flex items-center justify-center
                   opacity-0 group-hover/modal-avatar:opacity-100 transition-opacity duration-200">
-                  <span v-if="avatarUploading" class="material-symbols-rounded text-white text-lg animate-spin">autorenew</span>
-                  <span v-else class="material-symbols-rounded icon-filled text-white text-lg">photo_camera</span>
+                  <i v-if="avatarUploading" class="bi bi-arrow-repeat text-white text-lg animate-spin"></i>
+                  <i v-else class="bi bi-camera-fill text-white text-lg"></i>
                 </div>
               </div>
               <div>
@@ -984,8 +981,8 @@ function showToast(message, type = 'success') {
                 transition-all duration-200 flex items-center gap-2
                 disabled:opacity-50 disabled:cursor-not-allowed
                 shadow-lg shadow-primary/20">
-              <span v-if="bioSaving" class="material-symbols-rounded text-sm animate-spin">autorenew</span>
-              <span v-else class="material-symbols-rounded text-sm">save</span>
+              <i v-if="bioSaving" class="bi bi-arrow-repeat text-sm animate-spin"></i>
+              <i v-else class="bi bi-save text-sm"></i>
               {{ bioSaving ? 'SAVING...' : 'SAVE CHANGES' }}
             </button>
           </div>

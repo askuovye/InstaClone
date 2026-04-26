@@ -36,7 +36,7 @@ async function handleSubmit(content) {
 
 async function handleDelete(id) {
   try {
-    await commentsApi.delete(props.postId, id)
+    await commentsApi.delete(id)
     commentsList.value = commentsList.value.filter(c => c.id !== id)
     emit('count-changed', commentsList.value.length)
   } catch (e) {

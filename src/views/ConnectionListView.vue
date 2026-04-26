@@ -63,7 +63,7 @@ const pageTitle = computed(() => type.value === 'followers' ? 'FOLLOWERS' : 'FOL
     <!-- Header -->
     <div class="flex items-center gap-4 mb-8 border-b border-border/50 pb-4">
       <button @click="$router.back()" class="w-10 h-10 rounded-xl bg-surface border border-border flex items-center justify-center hover:bg-surface/80 transition-colors">
-        <span class="material-symbols-rounded text-white/60">arrow_back</span>
+        <i class="bi bi-arrow-left text-white/60"></i>
       </button>
       <div>
         <h1 class="text-2xl font-black tracking-tight italic">{{ pageTitle }}</h1>
@@ -74,7 +74,7 @@ const pageTitle = computed(() => type.value === 'followers' ? 'FOLLOWERS' : 'FOL
     <!-- Error -->
     <div v-if="error" class="mb-6 flex items-center justify-center py-10 text-center">
       <div class="flex flex-col items-center">
-        <span class="material-symbols-rounded text-red-400/30 text-4xl mb-3">error</span>
+        <i class="bi bi-exclamation-triangle-fill text-red-400/30 text-4xl mb-3"></i>
         <p class="text-red-300 text-sm font-bold tracking-wider">{{ error }}</p>
       </div>
     </div>
@@ -87,7 +87,7 @@ const pageTitle = computed(() => type.value === 'followers' ? 'FOLLOWERS' : 'FOL
     <!-- Empty -->
     <div v-else-if="users.length === 0" class="flex flex-col items-center justify-center py-20 text-center">
       <div class="w-16 h-16 rounded-2xl bg-surface/60 border border-border flex items-center justify-center mb-4">
-        <span class="material-symbols-rounded text-white/20 text-3xl">people</span>
+        <i class="bi bi-people text-white/20 text-3xl"></i>
       </div>
       <h2 class="text-sm font-black tracking-widest text-white/40 mb-1">NO CONNECTIONS YET</h2>
       <p class="text-xs text-white/20">This list is currently empty.</p>

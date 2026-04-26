@@ -141,8 +141,8 @@ function formatFileSize(bytes) {
           :class="canSubmit
             ? 'bg-primary text-black hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(5,204,71,0.4)]'
             : 'bg-surface text-white/30 border border-border'">
-          <span v-if="isSubmitting" class="material-symbols-rounded text-sm animate-spin">autorenew</span>
-          <span v-else class="material-symbols-rounded text-sm">send</span>
+          <i v-if="isSubmitting" class="bi bi-arrow-repeat text-sm animate-spin"></i>
+          <i v-else class="bi bi-send-fill text-sm"></i>
           {{ isSubmitting ? 'SHARING...' : 'SHARE' }}
         </button>
       </div>
@@ -169,8 +169,8 @@ function formatFileSize(bytes) {
               <div class="w-20 h-20 rounded-2xl bg-dark/80 border border-border
                 flex items-center justify-center
                 group-hover:scale-110 group-hover:border-primary/30 transition-all duration-300">
-                <span class="material-symbols-rounded text-primary/60 group-hover:text-primary transition-colors"
-                  style="font-size: 2.5rem">add_photo_alternate</span>
+                <i class="bi bi-plus-circle text-primary/60 group-hover:text-primary transition-colors"
+                  style="font-size: 2.5rem"></i>
               </div>
 
               <div class="text-center">
@@ -204,14 +204,14 @@ function formatFileSize(bytes) {
                   class="flex items-center gap-2 px-4 py-2 rounded-xl
                     bg-white/20 backdrop-blur-md text-white text-xs font-black tracking-wider
                     hover:bg-white/30 transition-all duration-200">
-                  <span class="material-symbols-rounded text-sm">edit</span>
+                  <i class="bi bi-pencil text-sm"></i>
                   CHANGE
                 </button>
                 <button @click="removeImage"
                   class="flex items-center gap-2 px-4 py-2 rounded-xl
                     bg-red-500/20 backdrop-blur-md text-red-300 text-xs font-black tracking-wider
                     hover:bg-red-500/30 transition-all duration-200">
-                  <span class="material-symbols-rounded text-sm">delete</span>
+                  <i class="bi bi-trash text-sm"></i>
                   REMOVE
                 </button>
               </div>
@@ -221,7 +221,7 @@ function formatFileSize(bytes) {
             <div v-if="selectedFile" class="absolute bottom-3 left-3 right-3
               flex items-center gap-2 px-3 py-2 rounded-lg
               bg-dark/80 backdrop-blur-sm border border-border">
-              <span class="material-symbols-rounded text-primary text-sm">image</span>
+              <i class="bi bi-image text-primary text-sm"></i>
               <span class="text-xs text-white/60 truncate flex-1">{{ selectedFile.name }}</span>
               <span class="text-xs text-white/30 flex-shrink-0">{{ formatFileSize(selectedFile.size) }}</span>
             </div>
@@ -240,7 +240,7 @@ function formatFileSize(bytes) {
           <div>
             <label class="flex items-center justify-between mb-2">
               <span class="flex items-center gap-2 text-xs font-black tracking-widest text-white/40">
-                <span class="material-symbols-rounded text-sm">description</span>
+                <i class="bi bi-text-left text-sm"></i>
                 CAPTION
               </span>
               <span class="text-xs font-bold"
@@ -270,15 +270,15 @@ function formatFileSize(bytes) {
             <h3 class="text-xs font-black tracking-widest text-white/30 mb-3">TIPS</h3>
             <ul class="space-y-2">
               <li class="flex items-start gap-2.5 text-xs text-white/40">
-                <span class="material-symbols-rounded text-primary/50 text-sm mt-0.5">check_circle</span>
+                <i class="bi bi-check-circle-fill text-primary/50 text-sm mt-0.5"></i>
                 Use high-quality square or portrait images for best results
               </li>
               <li class="flex items-start gap-2.5 text-xs text-white/40">
-                <span class="material-symbols-rounded text-primary/50 text-sm mt-0.5">check_circle</span>
+                <i class="bi bi-check-circle-fill text-primary/50 text-sm mt-0.5"></i>
                 Write engaging captions to get more interactions
               </li>
               <li class="flex items-start gap-2.5 text-xs text-white/40">
-                <span class="material-symbols-rounded text-primary/50 text-sm mt-0.5">check_circle</span>
+                <i class="bi bi-check-circle-fill text-primary/50 text-sm mt-0.5"></i>
                 Supported formats: JPEG, PNG, WebP (max 5 MB)
               </li>
             </ul>
@@ -288,7 +288,7 @@ function formatFileSize(bytes) {
           <div v-if="errorMessage && !fieldErrors.caption"
             class="flex items-start gap-3 px-4 py-3 rounded-xl
               bg-red-500/10 border border-red-500/30 text-red-300 text-xs">
-            <span class="material-symbols-rounded text-sm mt-0.5">error</span>
+            <i class="bi bi-exclamation-triangle-fill text-sm mt-0.5"></i>
             <span>{{ errorMessage }}</span>
           </div>
 
@@ -301,8 +301,8 @@ function formatFileSize(bytes) {
             :class="canSubmit
               ? 'bg-primary text-black hover:bg-primary/90 shadow-lg shadow-primary/20'
               : 'bg-surface text-white/30 border border-border'">
-            <span v-if="isSubmitting" class="material-symbols-rounded text-sm animate-spin">autorenew</span>
-            <span v-else class="material-symbols-rounded text-sm">send</span>
+            <i v-if="isSubmitting" class="bi bi-arrow-repeat text-sm animate-spin"></i>
+            <i v-else class="bi bi-send-fill text-sm"></i>
             {{ isSubmitting ? 'SHARING...' : 'SHARE POST' }}
           </button>
         </div>
@@ -316,9 +316,7 @@ function formatFileSize(bytes) {
           :class="toastType === 'success'
             ? 'bg-primary/15 border-primary/40 text-primary'
             : 'bg-red-500/15 border-red-500/40 text-red-400'">
-          <span class="material-symbols-rounded icon-filled text-lg">
-            {{ toastType === 'success' ? 'check_circle' : 'error' }}
-          </span>
+          <i class="bi text-lg" :class="toastType === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'"></i>
           <span class="text-sm font-bold">{{ toastMessage }}</span>
         </div>
       </Transition>

@@ -3,11 +3,11 @@ import { useRoute } from 'vue-router'
 
 const route = useRoute()
 const navItems = [
-  { name: 'Home', path: '/', icon: 'home' },
-  { name: 'Explore', path: '/explore', icon: 'explore' },
-  { name: 'Create', path: '/create', icon: 'add_box', isCenter: true },
-  { name: 'Notifications', path: '/notifications', icon: 'notifications' },
-  { name: 'Profile', path: '/profile', icon: 'person' },
+  { name: 'Home', path: '/', icon: 'bi-house' },
+  { name: 'Explore', path: '/explore', icon: 'bi-compass' },
+  { name: 'Create', path: '/create', icon: 'bi-plus-square', isCenter: true },
+  { name: 'Notifications', path: '/notifications', icon: 'bi-bell' },
+  { name: 'Profile', path: '/profile', icon: 'bi-person' },
 ]
 </script>
 
@@ -21,11 +21,9 @@ const navItems = [
       :class="route.path === item.path ? 'text-primary' : 'text-gray-400'"
     >
       <div v-if="item.isCenter" class="absolute -top-6 bg-primary text-black w-12 h-12 rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(5,204,71,0.4)]">
-        <span class="material-symbols-rounded icon-filled !text-3xl">add</span>
+        <i class="bi bi-plus !text-3xl"></i>
       </div>
-      <span v-else class="material-symbols-rounded !text-3xl" :class="{ 'icon-filled': route.path === item.path }">
-        {{ item.icon }}
-      </span>
+      <i v-else class="bi !text-3xl" :class="[route.path === item.path ? item.icon + '-fill' : item.icon]"></i>
     </router-link>
   </nav>
 </template>
