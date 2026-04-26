@@ -1,15 +1,22 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import AppShell from '../components/AppShell.vue'
+
 import { posts } from '../services/api'
 
 const router = useRouter()
 
 // ─── State ────────────────────────────────────────────────
 const fileInput = ref(null)
-const previewImage = ref(null)
-const selectedFile = ref(null)
+import { useImageUpload } from '../composables/useImageUpload'
+
+const {
+  selectedFile,
+  previewUrl: previewImage,
+  error: uploadError,
+  handleFile,
+  clearFile
+} = useImageUpload({ maxSizeMB: 5 })
 const caption = ref('')
 const isSubmitting = ref(false)
 const isDragging = ref(false)
@@ -25,33 +32,13 @@ const captionRemaining = computed(() => 2200 - captionLength.value)
 const canSubmit = computed(() => selectedFile.value && !isSubmitting.value)
 
 // ─── File Handling ────────────────────────────────────────
-const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
-const maxSize = 5 * 1024 * 1024 // 5 MB
-
-function validateFile(file) {
-  if (!validTypes.includes(file.type)) {
-    showToast('Only JPEG, PNG, and WebP images are allowed.', 'error')
-    return false
-  }
-  if (file.size > maxSize) {
-    showToast('Image must be under 5 MB.', 'error')
-    return false
-  }
-  return true
-}
-
 function setFile(file) {
-  if (!validateFile(file)) return
-  selectedFile.value = file
+  if (!handleFile(file)) {
+    showToast(uploadError.value, 'error')
+    return
+  }
   errorMessage.value = ''
   fieldErrors.value = {}
-
-  // Generate preview
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    previewImage.value = e.target.result
-  }
-  reader.readAsDataURL(file)
 }
 
 function handleFileUpload(event) {
@@ -60,8 +47,7 @@ function handleFileUpload(event) {
 }
 
 function removeImage() {
-  previewImage.value = null
-  selectedFile.value = null
+  clearFile()
   if (fileInput.value) fileInput.value.value = ''
 }
 
@@ -139,7 +125,7 @@ function formatFileSize(bytes) {
 </script>
 
 <template>
-  <AppShell>
+  <div>
     <div class="max-w-3xl mx-auto w-full px-4 md:px-8 pt-6 pb-8">
 
       <!-- Header -->
@@ -337,7 +323,7 @@ function formatFileSize(bytes) {
         </div>
       </Transition>
     </div>
-  </AppShell>
+  </div>
 </template>
 
 <style scoped>

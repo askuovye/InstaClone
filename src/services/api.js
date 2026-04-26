@@ -1,11 +1,11 @@
-const API_BASE = 'http://localhost:8000/api'
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 
 /**
  * Centralized API client for InstaClone backend.
  * Automatically attaches the Sanctum bearer token from localStorage.
  */
 async function request(endpoint, options = {}) {
-  const token = localStorage.getItem('auth_token')
+  const token = localStorage.getItem('instaclone.token') || localStorage.getItem('auth_token')
 
   const headers = {
     Accept: 'application/json',
@@ -29,6 +29,14 @@ async function request(endpoint, options = {}) {
   // Handle 204 No Content
   if (response.status === 204) {
     return { ok: true, status: 204, data: null }
+  }
+  
+  // Handle 401 Unauthorized
+  if (response.status === 401) {
+    localStorage.removeItem('instaclone.token')
+    localStorage.removeItem('auth_token')
+    window.location.href = '/login'
+    throw new Error('Unauthorized')
   }
 
   const data = await response.json()
@@ -98,6 +106,11 @@ export const users = {
       method: 'POST',
       body: formData,
     })
+  },
+
+  suggestions(params = {}) {
+    const qs = new URLSearchParams(params).toString()
+    return request(`/users/suggestions${qs ? '?' + qs : ''}`)
   },
 }
 

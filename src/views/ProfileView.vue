@@ -1,12 +1,15 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAuth } from '../composables/useAuth'
+import { useAuthStore } from '../stores/auth'
+import { storeToRefs } from 'pinia'
 import { users, posts, follow } from '../services/api'
-import AppShell from '../components/AppShell.vue'
+
 
 const route = useRoute()
-const { user: authUser } = useAuth()
+const authStore = useAuthStore()
+const { user: authUser } = storeToRefs(authStore)
+const { fetchUser } = authStore
 
 // ─── State ───────────────────────────────────────────────
 const activeTab = ref('recent')
@@ -361,7 +364,6 @@ async function handleAvatarChange(event) {
     avatarPreview.value = null
 
     // Update auth user in localStorage
-    const { fetchUser } = useAuth()
     await fetchUser()
 
     showToast('Profile picture updated!', 'success')
@@ -400,7 +402,6 @@ async function saveBio() {
     saveBioLocally(profile.value.username, editBio.value)
 
     // Update auth user in localStorage
-    const { fetchUser } = useAuth()
     await fetchUser()
 
     showEditModal.value = false
@@ -440,7 +441,7 @@ function showToast(message, type = 'success') {
 </script>
 
 <template>
-  <AppShell>
+  <div>
   <div class="profile-root bg-dark min-h-screen text-white overflow-x-hidden">
 
     <!-- Hidden avatar file input -->
@@ -583,7 +584,7 @@ function showToast(message, type = 'success') {
               MESSAGE
             </button>
 
-            <button v-if="isOwnProfile" @click="openEditModal"
+            <button v-if="isOwnProfile" @click="$router.push('/profile/edit')"
               class="flex items-center gap-2 px-5 py-2.5 rounded font-black text-sm tracking-widest
                 bg-surface border border-primary/40 text-primary
                 hover:bg-primary hover:text-black transition-all duration-200">
@@ -601,11 +602,13 @@ function showToast(message, type = 'success') {
       :class="showStats ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'">
       <div class="stats-bar grid grid-cols-3 rounded-xl border border-border bg-surface/60 backdrop-blur-sm overflow-hidden">
         <div v-for="(stat, i) in [
-          { val: animatedWatchers, label: 'FOLLOWERS', raw: profile.followers_count },
-          { val: animatedDeviations, label: 'POSTS', raw: profile.posts_count },
-          { val: animatedViews, label: 'FOLLOWING', raw: profile.following_count },
+          { val: animatedWatchers, label: 'FOLLOWERS', raw: profile.followers_count, link: 'followers' },
+          { val: animatedDeviations, label: 'POSTS', raw: profile.posts_count, link: null },
+          { val: animatedViews, label: 'FOLLOWING', raw: profile.following_count, link: 'following' },
         ]" :key="i"
           class="stat-cell flex flex-col items-center justify-center py-5 relative"
+          :class="{ 'cursor-pointer hover:bg-white/5 transition-colors': stat.link }"
+          @click="stat.link ? $router.push(`/profile/list/${stat.link}?userId=${profile.id}`) : null"
           :style="{ transitionDelay: (i * 80) + 'ms' }">
           <div v-if="i < 2" class="absolute right-0 top-1/4 bottom-1/4 w-px bg-border"></div>
           <span class="text-primary font-black text-2xl md:text-3xl tracking-tight tabular-nums">
@@ -728,6 +731,7 @@ function showToast(message, type = 'success') {
             <div v-else class="art-grid"
               :class="showGrid ? 'grid-in' : 'grid-out'">
               <div v-for="(item, i) in galleryItems" :key="item.id"
+                @click="$router.push(`/posts/${item.id}`)"
                 class="art-cell group cursor-pointer rounded-xl overflow-hidden relative"
                 :class="[
                   item.span === 'large' ? 'art-large' : '',
@@ -989,7 +993,7 @@ function showToast(message, type = 'success') {
       </div>
     </Transition>
   </div>
-  </AppShell>
+  </div>
 </template>
 
 <style scoped>

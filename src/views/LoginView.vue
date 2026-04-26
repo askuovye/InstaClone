@@ -1,11 +1,14 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useAuth } from '../composables/useAuth'
+import { useAuthStore } from '../stores/auth'
+import { storeToRefs } from 'pinia'
 
 const router = useRouter()
 const route = useRoute()
-const { login, loading: isLoading } = useAuth()
+const authStore = useAuthStore()
+const { loading: isLoading } = storeToRefs(authStore)
+const { login } = authStore
 
 const email = ref('')
 const password = ref('')

@@ -1,12 +1,15 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuth } from '../composables/useAuth'
+import { useAuthStore } from '../stores/auth'
+import { storeToRefs } from 'pinia'
+import { timeAgo } from '../utils/dates'
 import { notifications as notifApi, follow as followApi } from '../services/api'
-import AppShell from '../components/AppShell.vue'
+
 
 const router = useRouter()
-const { user: authUser } = useAuth()
+const authStore = useAuthStore()
+const { user: authUser } = storeToRefs(authStore)
 
 // ─── State ────────────────────────────────────────────────
 const activeFilter = ref('all')
@@ -130,18 +133,7 @@ async function toggleFollowBack(actorId) {
 }
 
 // ─── Time formatting ──────────────────────────────────────
-function timeAgo(dateStr) {
-  if (!dateStr) return ''
-  const now = Date.now()
-  const then = new Date(dateStr).getTime()
-  const diff = Math.floor((now - then) / 1000)
-
-  if (diff < 60) return 'JUST NOW'
-  if (diff < 3600) return Math.floor(diff / 60) + 'M AGO'
-  if (diff < 86400) return Math.floor(diff / 3600) + 'H AGO'
-  if (diff < 604800) return Math.floor(diff / 86400) + 'D AGO'
-  return Math.floor(diff / 604800) + 'W AGO'
-}
+// Local timeAgo is now imported from utils/dates.js
 
 // ─── Navigate ─────────────────────────────────────────────
 function goToProfile(username) {
@@ -156,7 +148,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <AppShell>
+  <div>
     <div class="notifications-page max-w-3xl w-full px-4 md:px-10 pb-8">
 
       <!-- ── Page Header ── -->
@@ -389,7 +381,7 @@ onMounted(async () => {
         </div>
       </div>
     </div>
-  </AppShell>
+  </div>
 </template>
 
 <style scoped>

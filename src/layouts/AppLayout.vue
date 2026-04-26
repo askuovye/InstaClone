@@ -1,16 +1,19 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAuth } from '../composables/useAuth'
+import { useAuthStore } from '../stores/auth'
+import { storeToRefs } from 'pinia'
 import { users as usersApi, notifications as notifApi } from '../services/api'
 
 const route = useRoute()
 const router = useRouter()
-const { user: authUser, logout } = useAuth()
+const authStore = useAuthStore()
+const { user: authUser } = storeToRefs(authStore)
+const { logout } = authStore
 
 const navItems = [
-  { key: 'home', icon: 'home', label: 'HOME', to: '/' },
-  { key: 'explore', icon: 'explore', label: 'EXPLORE', to: '/explore' },
+  { key: 'home', icon: 'home', label: 'HOME', to: '/feed' },
+  { key: 'explore', icon: 'explore', label: 'EXPLORE', to: '/discover' },
   { key: 'create', icon: 'add_circle', label: 'CREATE', to: '/create' },
   { key: 'alerts', icon: 'notifications', label: 'ALERTS', to: '/notifications' },
   { key: 'profile', icon: 'person', label: 'PROFILE', to: '/profile' },

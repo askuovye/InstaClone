@@ -1,108 +1,30 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuth } from '../composables/useAuth'
-import { feed as feedApi, likes as likesApi, posts as postsApi } from '../services/api'
-import AppShell from '../components/AppShell.vue'
+import { useAuthStore } from '../stores/auth'
+import { useFeedStore } from '../stores/feed'
+import { storeToRefs } from 'pinia'
+import { timeAgo } from '../utils/dates'
 
 const router = useRouter()
-const { user: authUser } = useAuth()
+const authStore = useAuthStore()
+const feedStore = useFeedStore()
 
-// ─── State ────────────────────────────────────────────────
+const { user: authUser } = storeToRefs(authStore)
+const {
+  posts: feedPosts,
+  loading: feedLoading,
+  loadingMore,
+  error: feedError,
+  initialLoad,
+  hasMore,
+  feedSource
+} = storeToRefs(feedStore)
+
 const feedVisible = ref(false)
-const feedLoading = ref(false)
-const feedError = ref(null)
-const feedPosts = ref([])
-const nextCursor = ref(null)
-const nextPage = ref(1)
-const hasMore = ref(true)
-const loadingMore = ref(false)
-const initialLoad = ref(true)
-const feedSource = ref('feed') // 'feed' or 'own'
 
-// ─── Load feed from API ───────────────────────────────────
-async function loadFeed(append = false) {
-  if (feedLoading.value || loadingMore.value) return
-  if (append) loadingMore.value = true
-  else feedLoading.value = true
-
-  feedError.value = null
-
-  try {
-    // Try the followed-users feed first
-    if (feedSource.value === 'feed') {
-      const params = { per_page: 10 }
-      if (append && nextCursor.value) params.cursor = nextCursor.value
-
-      const data = await feedApi.get(params)
-      const posts = Array.isArray(data.data) ? data.data : []
-
-      if (!append && posts.length === 0 && authUser.value?.id) {
-        // Feed is empty — fall back to user's own posts
-        feedSource.value = 'own'
-        nextPage.value = 1
-        await loadOwnPosts(false)
-        return
-      }
-
-      if (append) {
-        feedPosts.value.push(...posts)
-      } else {
-        feedPosts.value = posts
-      }
-
-      nextCursor.value = data.next_cursor || null
-      hasMore.value = !!data.next_cursor
-    } else {
-      await loadOwnPosts(append)
-    }
-  } catch (e) {
-    console.error('Feed load failed:', e)
-    feedError.value = e.message || 'Failed to load feed'
-  } finally {
-    feedLoading.value = false
-    loadingMore.value = false
-    initialLoad.value = false
-  }
-}
-
-async function loadOwnPosts(append) {
-  try {
-    const data = await postsApi.byUser(authUser.value.id, nextPage.value)
-    const posts = Array.isArray(data.data) ? data.data : []
-
-    if (append) {
-      feedPosts.value.push(...posts)
-    } else {
-      feedPosts.value = posts
-    }
-
-    hasMore.value = !!data.next_page_url
-    if (hasMore.value) nextPage.value++
-  } catch (e) {
-    console.error('Own posts load failed:', e)
-    feedError.value = e.message || 'Failed to load posts'
-  }
-}
-
-// ─── Like / Unlike ────────────────────────────────────────
-async function toggleLike(post) {
-  const wasLiked = post.liked_by_me
-  post.liked_by_me = !wasLiked
-  post.likes_count += wasLiked ? -1 : 1
-
-  try {
-    if (wasLiked) {
-      await likesApi.unlike(post.id)
-    } else {
-      await likesApi.like(post.id)
-    }
-  } catch (e) {
-    post.liked_by_me = wasLiked
-    post.likes_count += wasLiked ? 1 : -1
-    console.error('Like toggle failed:', e)
-  }
-}
+const loadFeed = (append = false) => feedStore.loadFeed(append)
+const toggleLike = (post) => feedStore.toggleLike(post.id)
 
 // ─── Helpers ──────────────────────────────────────────────
 function formatK(n) {
@@ -112,18 +34,7 @@ function formatK(n) {
   return n.toString()
 }
 
-function timeAgo(dateStr) {
-  const now = Date.now()
-  const then = new Date(dateStr).getTime()
-  const seconds = Math.floor((now - then) / 1000)
-  if (seconds < 60) return 'JUST NOW'
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}M AGO`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}H AGO`
-  const days = Math.floor(hours / 24)
-  return `${days}D AGO`
-}
+// Local timeAgo is now imported from utils/dates.js
 
 function navigateToProfile(username) {
   if (username) router.push(`/profile/${username}`)
@@ -133,7 +44,9 @@ function navigateToProfile(username) {
 let scrollHandler = null
 
 onMounted(async () => {
-  await loadFeed()
+  if (feedPosts.value.length === 0) {
+    await loadFeed()
+  }
   setTimeout(() => { feedVisible.value = true }, 150)
 
   scrollHandler = () => {
@@ -151,7 +64,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <AppShell>
+  <div>
     <div class="flex justify-center pb-8">
 
       <!-- ═══ MAIN FEED ═══ -->
@@ -252,7 +165,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Post Image -->
-            <div class="post-image-wrap relative overflow-hidden rounded-xl cursor-pointer group"
+            <div @click="$router.push(`/posts/${post.id}`)" class="post-image-wrap relative overflow-hidden rounded-xl cursor-pointer group"
               style="aspect-ratio: 1/1; min-height: 300px;">
               <img :src="post.image_url" :alt="post.caption || 'Post'"
                 class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
@@ -275,7 +188,7 @@ onUnmounted(() => {
                 </span>
               </button>
 
-              <button class="flex items-center gap-1.5 group/cmt">
+              <button @click="$router.push(`/posts/${post.id}`)" class="flex items-center gap-1.5 group/cmt">
                 <span class="material-symbols-rounded text-xl text-white/40
                   group-hover/cmt:text-white/70 transition-colors">chat_bubble</span>
                 <span class="text-sm font-bold text-white/50">{{ post.comments_count || 0 }}</span>
@@ -337,7 +250,7 @@ onUnmounted(() => {
         </div>
       </aside>
     </div>
-  </AppShell>
+  </div>
 </template>
 
 <style scoped>

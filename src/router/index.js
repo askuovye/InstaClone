@@ -1,78 +1,95 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
-import ExploreView from '../views/ExploreView.vue'
-import CreatePostView from '../views/CreatePostView.vue'
-import ProfileView from '../views/ProfileView.vue'
-import NotificationsView from '../views/NotificationsView.vue'
-import LoginView from '../views/LoginView.vue'
-import RegisterView from '../views/RegisterView.vue'
+import { ROUTE_NAMES } from './routeNames'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/login',
-      name: 'login',
-      component: LoginView,
-      meta: { hideNavigation: true, guest: true }
+      name: ROUTE_NAMES.LOGIN,
+      component: () => import('../views/LoginView.vue'),
+      meta: { hideNavigation: true, requiresGuest: true }
     },
     {
       path: '/register',
-      name: 'register',
-      component: RegisterView,
-      meta: { hideNavigation: true, guest: true }
+      name: ROUTE_NAMES.REGISTER,
+      component: () => import('../views/RegisterView.vue'),
+      meta: { hideNavigation: true, requiresGuest: true }
     },
     {
-      path: '/',
-      name: 'home',
-      component: HomeView,
-      meta: { requiresAuth: true, hideNavigation: true }
+      path: '/feed',
+      name: ROUTE_NAMES.FEED,
+      component: () => import('../views/HomeView.vue'), // Renaming HomeView logic to Feed
+      meta: { requiresAuth: true }
     },
     {
-      path: '/explore',
-      name: 'explore',
-      component: ExploreView,
-      meta: { requiresAuth: true, hideNavigation: true }
+      path: '/discover',
+      name: ROUTE_NAMES.DISCOVER,
+      component: () => import('../views/ExploreView.vue'),
+      meta: { requiresAuth: true }
     },
     {
       path: '/create',
-      name: 'create',
-      component: CreatePostView,
-      meta: { requiresAuth: true, hideNavigation: true }
+      name: ROUTE_NAMES.CREATE_POST,
+      component: () => import('../views/CreatePostView.vue'),
+      meta: { requiresAuth: true }
     },
     {
       path: '/profile',
-      name: 'profile',
-      component: ProfileView,
-      meta: { requiresAuth: true, hideNavigation: true }
+      name: ROUTE_NAMES.PROFILE,
+      component: () => import('../views/ProfileView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/profile/edit',
+      name: ROUTE_NAMES.PROFILE_EDIT,
+      component: () => import('../views/ProfileEditView.vue'),
+      meta: { requiresAuth: true }
     },
     {
       path: '/profile/:username',
-      name: 'user-profile',
-      component: ProfileView,
-      meta: { requiresAuth: true, hideNavigation: true }
+      name: ROUTE_NAMES.USER_PROFILE,
+      component: () => import('../views/ProfileView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/profile/list/:type',
+      name: ROUTE_NAMES.CONNECTION_LIST,
+      component: () => import('../views/ConnectionListView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/posts/:postId',
+      name: ROUTE_NAMES.POST_DETAIL,
+      component: () => import('../views/PostDetailView.vue'),
+      meta: { requiresAuth: true }
     },
     {
       path: '/notifications',
-      name: 'notifications',
-      component: NotificationsView,
-      meta: { requiresAuth: true, hideNavigation: true }
+      name: ROUTE_NAMES.NOTIFICATIONS,
+      component: () => import('../views/NotificationsView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: ROUTE_NAMES.NOT_FOUND,
+      component: () => import('../views/NotFound.vue'),
     }
   ]
 })
 
 // Navigation guards
 router.beforeEach((to) => {
-  const token = localStorage.getItem('auth_token')
+  const token = localStorage.getItem('instaclone.token') || localStorage.getItem('auth_token')
 
   // Redirect to login if trying to access a protected route without auth
   if (to.meta.requiresAuth && !token) {
-    return { name: 'login', query: { redirect: to.fullPath } }
+    return { name: ROUTE_NAMES.LOGIN, query: { redirect: to.fullPath } }
   }
 
-  // Redirect to home if trying to access guest-only routes while authenticated
-  if (to.meta.guest && token) {
-    return { name: 'home' }
+  // Redirect to feed if trying to access guest-only routes while authenticated
+  if (to.meta.requiresGuest && token) {
+    return { name: ROUTE_NAMES.FEED }
   }
 })
 

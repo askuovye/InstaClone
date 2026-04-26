@@ -1,12 +1,14 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuth } from '../composables/useAuth'
+import { useAuthStore } from '../stores/auth'
+import { storeToRefs } from 'pinia'
 import { feed as feedApi, posts as postsApi, likes as likesApi, users as usersApi } from '../services/api'
-import AppShell from '../components/AppShell.vue'
+import AccountCard from '../components/profile/AccountCard.vue'
 
 const router = useRouter()
-const { user: authUser } = useAuth()
+const authStore = useAuthStore()
+const { user: authUser } = storeToRefs(authStore)
 
 // ─── State ────────────────────────────────────────────────
 const headerIn = ref(false)
@@ -16,6 +18,11 @@ const hoveredId = ref(null)
 const explorePosts = ref([])
 const isLoading = ref(true)
 const loadError = ref(null)
+
+const suggestedUsers = ref([])
+const isSuggestionsLoading = ref(true)
+
+
 
 // ─── Grid span patterns (visual variety) ──────────────────
 const spanPatterns = ['hero', 'tall', 'tall', 'square', 'square', 'wide', 'square', 'square', 'tall', 'square', 'square', 'square']
@@ -128,15 +135,29 @@ function goToProfile(username) {
   if (username) router.push(`/profile/${username}`)
 }
 
+// ─── Load suggestions ───────────────────────────────────────
+async function loadSuggestions() {
+  isSuggestionsLoading.value = true
+  try {
+    const data = await usersApi.suggestions({ limit: 4 })
+    suggestedUsers.value = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : [])
+  } catch (e) {
+    console.error('Failed to load suggestions:', e)
+  } finally {
+    isSuggestionsLoading.value = false
+  }
+}
+
 // ─── Lifecycle ────────────────────────────────────────────
 onMounted(async () => {
   setTimeout(() => { headerIn.value = true }, 80)
+  loadSuggestions()
   await loadExplorePosts()
 })
 </script>
 
 <template>
-  <AppShell>
+  <div>
     <div class="explore-page pb-8">
 
       <!-- ── Page Header ── -->
@@ -144,7 +165,7 @@ onMounted(async () => {
         transition-all duration-600"
         :class="headerIn ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'">
         <div class="flex items-center justify-between">
-          <h1 class="page-title font-black text-3xl tracking-tight">EXPLORE</h1>
+          <h1 class="page-title font-black text-3xl tracking-tight">DISCOVER</h1>
           <button @click="loadExplorePosts" :disabled="isLoading"
             class="text-xs font-bold tracking-wider text-primary/60 hover:text-primary transition-colors
               disabled:opacity-50 flex items-center gap-1">
@@ -157,6 +178,14 @@ onMounted(async () => {
 
       <!-- ── Content ── -->
       <div class="px-4 md:px-6 pt-5">
+
+        <!-- ── Suggested Creators ── -->
+        <div class="mb-8" v-if="!isSuggestionsLoading && suggestedUsers.length > 0">
+          <h2 class="text-xs font-black tracking-widest text-white/40 mb-4 px-2">SUGGESTED FOR YOU</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <AccountCard v-for="user in suggestedUsers" :key="user.id" :user="user" />
+          </div>
+        </div>
 
         <!-- Loading -->
         <div v-if="isLoading" class="grid grid-cols-3 gap-2">
@@ -202,6 +231,7 @@ onMounted(async () => {
 
           <div
             v-for="(post, i) in explorePosts" :key="post.id"
+            @click="$router.push(`/posts/${post.id}`)"
             class="grid-item group cursor-pointer relative overflow-hidden rounded-xl"
             :class="[
               `span-${getSpan(i)}`,
@@ -270,7 +300,7 @@ onMounted(async () => {
         </div>
       </div>
     </div>
-  </AppShell>
+  </div>
 </template>
 
 <style scoped>
