@@ -1,14 +1,16 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { storeToRefs } from 'pinia'
 import { feed as feedApi, posts as postsApi, likes as likesApi, users as usersApi } from '../services/api'
 import AccountCard from '../components/profile/AccountCard.vue'
+import { useFollowsStore } from '../stores/follows'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const { user: authUser } = storeToRefs(authStore)
+const followsStore = useFollowsStore()
 
 // ─── State ────────────────────────────────────────────────
 const headerIn = ref(false)
@@ -21,6 +23,11 @@ const loadError = ref(null)
 
 const suggestedUsers = ref([])
 const isSuggestionsLoading = ref(true)
+
+// Reactive filtered list to hide followed users immediately
+const filteredSuggestions = computed(() => {
+  return suggestedUsers.value.filter(u => !followsStore.isFollowing(u.id))
+})
 
 
 
@@ -103,7 +110,6 @@ async function loadExplorePosts() {
     loadError.value = e.message || 'Failed to load posts'
   } finally {
     isLoading.value = false
-    setTimeout(() => { gridIn.value = true }, 150)
   }
 }
 
@@ -146,7 +152,7 @@ async function loadSuggestions() {
     // Filter: Not following and not me
     const filtered = users.filter(u => {
       const isMe = u.id === authUser.value?.id
-      const isFollowing = u.is_following === true
+      const isFollowing = followsStore.isFollowing(u.id)
       return !isMe && !isFollowing
     })
 
@@ -168,9 +174,21 @@ async function loadSuggestions() {
 // ─── Lifecycle ────────────────────────────────────────────
 onMounted(async () => {
   setTimeout(() => { headerIn.value = true }, 80)
+  
+  // Ensure we have the latest following list before loading suggestions
+  await loadFollowingIfNeeded()
+  
   loadSuggestions()
   await loadExplorePosts()
+  
+  setTimeout(() => { gridIn.value = true }, 200)
 })
+
+async function loadFollowingIfNeeded() {
+  if (authUser.value?.id && followsStore.followingIds.size === 0) {
+    await followsStore.loadFollowing(authUser.value.id)
+  }
+}
 </script>
 
 <template>
@@ -205,7 +223,7 @@ onMounted(async () => {
             </button>
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            <AccountCard v-for="user in suggestedUsers" :key="user.id" :user="user" :compact="true" />
+            <AccountCard v-for="user in filteredSuggestions" :key="user.id" :user="user" :compact="true" />
           </div>
         </div>
 

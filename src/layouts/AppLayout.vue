@@ -115,12 +115,34 @@ function onSearchBlur() {
       items-center gap-6 px-8 h-14
       bg-dark/90 backdrop-blur-xl border-b border-border">
 
-      <div class="flex items-center gap-3 flex-shrink-0">
-        <router-link to="/"
-          class="brand-wordmark font-black text-xl tracking-tight text-primary italic">
-          KINETIC
-        </router-link>
-      </div>
+      <router-link to="/" class="logo-link group flex items-center gap-2.5 flex-shrink-0">
+        <div class="logo-mark w-8 h-8 flex-shrink-0">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none"
+            xmlns="http://www.w3.org/2000/svg">
+            <!-- Outer dashed ring — rotates CW -->
+            <circle class="ring-outer" cx="16" cy="16" r="14"
+              stroke="#05cc47" stroke-width="1.2" stroke-dasharray="4 3" fill="none" opacity="0.4"/>
+            <!-- Inner dashed ring — rotates CCW -->
+            <circle class="ring-inner" cx="16" cy="16" r="9"
+              stroke="#05cc47" stroke-width="1" stroke-dasharray="2 4" fill="none" opacity="0.55"/>
+            <!-- K vertical bar -->
+            <rect x="10" y="8" width="2.5" height="16" rx="1" fill="#05cc47"/>
+            <!-- K upper arm -->
+            <polygon points="12.5,16 21,8 23.5,8 14.5,16.8" fill="#05cc47"/>
+            <!-- K lower arm -->
+            <polygon points="12.5,16 23.5,24 21,24 13,16.8" fill="#05cc47"/>
+            <!-- Core pulse dot -->
+            <circle class="core-dot" cx="16" cy="16" r="2" fill="#05cc47"/>
+          </svg>
+        </div>
+ 
+        <!-- Wordmark + tagline -->
+        <div class="flex flex-col leading-none gap-[3px]">
+          <span class="logo-wordmark font-black text-[15px] tracking-[0.18em] italic"
+            style="color: #05cc47;">KINETIC</span>
+          <span class="text-[8px] font-bold tracking-[0.3em] text-white/20">GALLERY</span>
+        </div>
+      </router-link>
 
       <!-- Search with dropdown -->
       <div class="flex-1 max-w-xs ml-6 relative">
@@ -421,5 +443,35 @@ function onSearchBlur() {
 @keyframes badge-pop-in {
   from { opacity: 0; transform: scale(0); }
   to   { opacity: 1; transform: scale(1); }
+}
+
+/* ─── Logo animations ─── */
+.ring-outer {
+  transform-origin: 16px 16px;
+  animation: spin-cw 12s linear infinite;
+}
+.ring-inner {
+  transform-origin: 16px 16px;
+  animation: spin-ccw 8s linear infinite;
+}
+.core-dot {
+  transform-origin: 16px 16px;
+  animation: core-pulse 2.5s ease-in-out infinite;
+}
+ 
+@keyframes spin-cw   { from { transform: rotate(0deg);    } to { transform: rotate(360deg);  } }
+@keyframes spin-ccw  { from { transform: rotate(0deg);    } to { transform: rotate(-360deg); } }
+@keyframes core-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1);   }
+  50%      { opacity: 1;   transform: scale(1.5); }
+}
+
+/* Speed up on hover */
+.logo-link:hover .ring-outer { animation-duration: 3.5s; opacity: 0.75; }
+.logo-link:hover .ring-inner { animation-duration: 2s;   opacity: 0.95; }
+.logo-link:hover .core-dot   { animation-duration: 0.7s; }
+.logo-link:hover .logo-wordmark {
+  color: #07e050 !important;
+  text-shadow: 0 0 20px rgba(5,204,71,0.4);
 }
 </style>

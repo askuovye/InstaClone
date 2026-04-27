@@ -10,11 +10,22 @@ export const useFollowsStore = defineStore('follows', {
   }),
 
   getters: {
-    isFollowing: (state) => (userId) => state.followingIds.has(userId),
-    isLoading: (state) => (userId) => state.loadingIds.has(userId),
+    isFollowing: (state) => (userId) => state.followingIds.has(Number(userId)) || state.followingIds.has(String(userId)),
+    isLoading: (state) => (userId) => state.loadingIds.has(Number(userId)) || state.loadingIds.has(String(userId)),
   },
 
   actions: {
+    async loadFollowing(currentUserId) {
+      if (!currentUserId) return
+      try {
+        // Fetch a large number or paginate if needed, but for now let's assume one big fetch
+        const data = await followApi.following(currentUserId, 1)
+        const ids = (data.data || data || []).map(u => u.id)
+        this.followingIds = new Set(ids)
+      } catch (e) {
+        console.error('Failed to load following list:', e)
+      }
+    },
     initializeFollowStatus(userId, isFollowing) {
       if (isFollowing) {
         this.followingIds.add(userId)
