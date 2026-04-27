@@ -5,6 +5,11 @@ import { useAuthStore } from '../stores/auth'
 import { storeToRefs } from 'pinia'
 import { users, posts, follow } from '../services/api'
 
+import ProfileHeader from '../components/profile/ProfileHeader.vue'
+import ProfileStats from '../components/profile/ProfileStats.vue'
+import ProfileTabs from '../components/profile/ProfileTabs.vue'
+import ProfileGrid from '../components/profile/ProfileGrid.vue'
+import EditProfileModal from '../components/profile/EditProfileModal.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()
@@ -451,147 +456,31 @@ function showToast(message, type = 'success') {
       </div>
     </Transition>
 
-    <!-- ── Sticky floating header (appears on scroll) ── -->
-    <Transition name="slide-down">
-      <div v-if="headerVisible" class="sticky-header fixed top-0 left-0 right-0 z-50
-        flex items-center gap-4 px-6 py-3
-        bg-dark/90 backdrop-blur-lg border-b border-border">
-        <div class="w-8 h-8 rounded-lg overflow-hidden border border-border flex-shrink-0
-          flex items-center justify-center bg-surface">
-          <img v-if="profile.avatar_url" :src="profile.avatar_url" class="w-full h-full object-cover" />
-          <i v-else class="bi bi-person-fill text-primary text-sm"></i>
-        </div>
-        <span class="font-black text-sm tracking-widest">{{ profile.username }}</span>
-        <div class="flex gap-6 ml-4 text-xs text-white/40 font-bold tracking-wider">
-          <span>{{ formatNumber(profile.followers_count) }} <span class="text-white/25">FOLLOWERS</span></span>
-          <span>{{ formatNumber(profile.posts_count) }} <span class="text-white/25">POSTS</span></span>
-        </div>
-        <button v-if="!isOwnProfile && !isWatching" @click="toggleWatch"
-          class="ml-auto btn-watch-sm flex items-center gap-1.5 px-4 py-1.5 rounded font-black text-xs tracking-widest"
-          :class="isWatching ? 'bg-surface border border-border text-white/60' : 'bg-primary text-black'">
-          <i class="bi text-sm" :class="isWatching ? 'bi-eye-slash' : 'bi-eye'"></i>
-          {{ isWatching ? 'UNWATCH' : 'WATCH' }}
-        </button>
-      </div>
-    </Transition>
+    <!-- ── PROFILE HEADER (Extracted) ── -->
+    <ProfileHeader
+      :profile="profile"
+      :is-own-profile="isOwnProfile"
+      :is-watching="isWatching"
+      :show-banner="showBanner"
+      :show-avatar="showAvatar"
+      :show-meta="showMeta"
+      :header-visible="headerVisible"
+      :avatar-preview="avatarPreview"
+      :avatar-uploading="avatarUploading"
+      @toggle-watch="toggleWatch"
+      @trigger-avatar-upload="triggerAvatarUpload"
+      @edit-profile="showEditModal = true"
+    />
 
-    <!-- ── BANNER ── -->
-    <div class="banner-wrap relative overflow-hidden"
-      :class="showBanner ? 'banner-in' : 'banner-out'"
-      style="height: 280px;">
-      <!-- Animated banner background -->
-      <div class="absolute inset-0" :style="{ background: profile.bannerGradient }">
-        <!-- Neon beam animations -->
-        <div class="beam beam-1"></div>
-        <div class="beam beam-2"></div>
-        <div class="beam beam-3"></div>
-        <div class="absolute inset-0 scanlines pointer-events-none"></div>
-        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-dark"></div>
-      </div>
-
-      <!-- PRO badge top-right -->
-      <div v-if="false"
-        class="absolute top-5 right-6 z-10 flex items-center gap-1.5 px-3 py-1
-          border border-primary/40 rounded text-primary text-xs font-black tracking-widest
-          bg-dark/60 backdrop-blur-sm">
-        <span class="w-1.5 h-1.5 rounded-full bg-primary pulse-dot"></span>
-        PRO ACCOUNT
-      </div>
-    </div>
-
-    <!-- ── PROFILE HEADER ── -->
-    <div class="relative px-6 md:px-10 -mt-20 z-10">
-      <div class="flex flex-col md:flex-row md:items-end gap-5 md:gap-8">
-
-        <!-- Avatar -->
-        <div class="avatar-wrap flex-shrink-0"
-          :class="showAvatar ? 'avatar-in' : 'avatar-out'">
-          <div class="relative w-28 h-28 md:w-36 md:h-36"
-            :class="{ 'cursor-pointer': isOwnProfile }"
-            @click="isOwnProfile ? triggerAvatarUpload() : null">
-            <div class="avatar-glow absolute -inset-1 rounded-xl"></div>
-            <div class="relative w-full h-full rounded-xl border-2 border-primary/60
-              bg-surface overflow-hidden flex items-center justify-center group/avatar">
-              <!-- Show preview or actual avatar -->
-              <img v-if="avatarPreview" :src="avatarPreview" class="w-full h-full object-cover" />
-              <img v-else-if="profile.avatar_url" :src="profile.avatar_url" class="w-full h-full object-cover" />
-              <i v-else class="bi bi-person-fill text-white/30" style="font-size: 3rem"></i>
-              <!-- Avatar shimmer overlay -->
-              <div class="avatar-shimmer absolute inset-0"></div>
-              <!-- Camera overlay for own profile -->
-              <div v-if="isOwnProfile"
-                class="avatar-camera-overlay absolute inset-0 flex flex-col items-center justify-center
-                  bg-black/60 backdrop-blur-sm opacity-0 group-hover/avatar:opacity-100
-                  transition-all duration-300 rounded-xl">
-                <i v-if="avatarUploading" class="bi bi-arrow-repeat text-white text-2xl animate-spin"></i>
-                <template v-else>
-                  <i class="bi bi-camera-fill text-white text-2xl mb-1"></i>
-                  <span class="text-white/80 text-[10px] font-bold tracking-widest">CHANGE</span>
-                </template>
-              </div>
-            </div>
-            <!-- Online dot -->
-            <div class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-primary border-2 border-dark pulse-dot"></div>
-          </div>
-        </div>
-
-        <!-- Name + actions -->
-        <div class="flex-1 flex flex-col md:flex-row md:items-end gap-4 pb-2"
-          :class="showMeta ? 'meta-in' : 'meta-out'">
-          <div class="flex-1">
-            <h1 class="profile-name text-3xl md:text-5xl font-black tracking-tight leading-none mb-1">
-              {{ profile.name || profile.username }}
-            </h1>
-            <p class="text-white/40 text-xs md:text-sm font-bold tracking-widest uppercase">
-              @{{ profile.username }}
-            </p>
-          </div>
-
-          <div class="flex gap-3 flex-shrink-0">
-            <button v-if="!isOwnProfile && !isWatching" @click="toggleWatch"
-              class="watch-btn flex items-center gap-2 px-6 py-2.5 rounded font-black text-sm tracking-widest transition-all duration-300"
-              :class="isWatching
-                ? 'bg-surface border border-border text-white/60 hover:border-white/30'
-                : 'bg-primary text-black hover:bg-primary/90 watch-glow'">
-              <i class="bi text-base" :class="isWatching ? 'bi-person-dash-fill' : 'bi-person-plus-fill'"></i>
-              {{ isWatching ? 'WATCHING' : 'WATCH' }}
-            </button>
-
-
-            <button v-if="isOwnProfile" @click="$router.push('/profile/edit')"
-              class="flex items-center gap-2 px-5 py-2.5 rounded font-black text-sm tracking-widest
-                bg-surface border border-primary/40 text-primary
-                hover:bg-primary hover:text-black transition-all duration-200">
-              <i class="bi bi-pencil text-base"></i>
-              EDIT PROFILE
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── STATS BAR ── -->
-    <div id="stats-section"
-      class="mx-6 md:mx-10 mt-6 transition-all duration-700"
-      :class="showStats ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'">
-      <div class="stats-bar grid grid-cols-3 rounded-xl border border-border bg-surface/60 backdrop-blur-sm overflow-hidden">
-        <div v-for="(stat, i) in [
-          { val: animatedWatchers, label: 'FOLLOWERS', raw: profile.followers_count, link: 'followers' },
-          { val: animatedDeviations, label: 'POSTS', raw: profile.posts_count, link: null },
-          { val: animatedViews, label: 'FOLLOWING', raw: profile.following_count, link: 'following' },
-        ]" :key="i"
-          class="stat-cell flex flex-col items-center justify-center py-5 relative"
-          :class="{ 'cursor-pointer hover:bg-white/5 transition-colors': stat.link }"
-          @click="stat.link ? $router.push(`/profile/list/${stat.link}?userId=${profile.id}`) : null"
-          :style="{ transitionDelay: (i * 80) + 'ms' }">
-          <div v-if="i < 2" class="absolute right-0 top-1/4 bottom-1/4 w-px bg-border"></div>
-          <span class="text-primary font-black text-2xl md:text-3xl tracking-tight tabular-nums">
-            {{ formatNumber(stat.val) }}
-          </span>
-          <span class="text-white/30 text-xs font-bold tracking-widest mt-1">{{ stat.label }}</span>
-        </div>
-      </div>
-    </div>
+    <!-- ── STATS BAR (Extracted) ── -->
+    <ProfileStats
+      :profile="profile"
+      :show-stats="showStats"
+      :animated-watchers="animatedWatchers"
+      :animated-deviations="animatedDeviations"
+      :animated-views="animatedViews"
+      @navigate="(link) => $router.push(`/profile/list/${link}?userId=${profile.id}`)"
+    />
 
     <!-- ── MAIN CONTENT ── -->
     <div class="flex gap-0 md:gap-8 px-0 md:px-10 mt-8 pb-20">
@@ -670,81 +559,26 @@ function showToast(message, type = 'success') {
       <!-- ── MAIN COLUMN ── -->
       <main class="flex-1 min-w-0 px-6 md:px-0">
 
-        <!-- TABS -->
-        <div class="tabs-wrap mb-6 transition-all duration-500"
-          :class="showTabs ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'">
-          <div class="flex gap-1 p-1 bg-surface/60 border border-border rounded-xl w-fit">
-            <button v-for="tab in tabs" :key="tab.key"
-              @click="activeTab = tab.key"
-              class="tab-btn px-5 py-2.5 rounded-lg text-xs font-black tracking-widest transition-all duration-200"
-              :class="activeTab === tab.key
-                ? 'bg-primary text-black'
-                : 'text-white/40 hover:text-white/70'">
-              {{ tab.label }}
-            </button>
-          </div>
-        </div>
+        <!-- TABS (Extracted) -->
+        <ProfileTabs
+          :tabs="tabs"
+          v-model:activeTab="activeTab"
+          :show-tabs="showTabs"
+        />
 
         <!-- GALLERY GRID -->
         <Transition name="fade-up" mode="out-in">
           <div v-if="activeTab === 'recent'" key="recent">
-            <div class="gallery-header flex items-center justify-between mb-5"
-              :class="showGrid ? 'opacity-100' : 'opacity-0'">
-              <h2 class="text-sm font-black tracking-widest text-white/60">FEATURED DEVIATIONS</h2>
-              <button class="text-xs font-bold tracking-widest text-primary hover:text-primary/70 transition-colors">
-                VIEW ALL GALLERY →
-              </button>
-            </div>
-
-            <!-- Empty state -->
-            <div v-if="galleryItems.length === 0 && !postsLoading" class="flex flex-col items-center justify-center py-24 text-center">
-              <i class="bi bi-images text-white/10 mb-4" style="font-size: 4rem"></i>
-              <p class="text-white/30 font-bold tracking-widest text-sm">NO POSTS YET</p>
-              <p class="text-white/20 text-xs mt-1">{{ isOwnProfile ? 'Start sharing your work!' : 'This user hasn\'t posted yet.' }}</p>
-            </div>
-
-            <div v-else class="art-grid"
-              :class="showGrid ? 'grid-in' : 'grid-out'">
-              <div v-for="(item, i) in galleryItems" :key="item.id"
-                @click="$router.push(`/posts/${item.id}`)"
-                class="art-cell group cursor-pointer rounded-xl overflow-hidden relative"
-                :class="[
-                  item.span === 'large' ? 'art-large' : '',
-                  item.span === 'tall' ? 'art-tall' : '',
-                  item.span === 'wide' ? 'art-wide' : '',
-                  item.span === 'normal' ? 'art-normal' : '',
-                ]"
-                :style="{ animationDelay: (i * 60) + 'ms' }">
-                <!-- Real post image -->
-                <div class="art-bg absolute inset-0 transition-transform duration-500 group-hover:scale-110">
-                  <img :src="item.image_url" :alt="item.caption || 'Post'" class="w-full h-full object-cover" />
-                </div>
-
-                <!-- Hover overlay -->
-                <div class="art-overlay absolute inset-0 flex flex-col items-center justify-center
-                  opacity-0 group-hover:opacity-100 transition-all duration-300
-                  bg-black/60 backdrop-blur-sm">
-                  <i class="bi bi-arrows-fullscreen text-white text-3xl mb-2"></i>
-                  <span v-if="item.caption" class="text-xs font-bold text-white/60 tracking-wider px-4 text-center line-clamp-2">{{ item.caption }}</span>
-                  <span v-else class="text-xs font-bold text-white/60 tracking-wider">VIEW POST</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Load more posts -->
-            <button v-if="postsPage < postsLastPage"
-              @click="loadMorePosts"
-              :disabled="postsLoading"
-              class="load-more w-full mt-6 py-4 border border-border rounded-xl
-                text-xs font-black tracking-widest text-white/30
-                hover:border-primary/30 hover:text-primary/70 transition-all duration-300
-                flex items-center justify-center gap-2 disabled:opacity-50">
-              <i v-if="postsLoading" class="bi bi-arrow-repeat text-sm animate-spin"></i>
-              <template v-else>
-                <i class="bi bi-chevron-down text-sm"></i>
-                LOAD MORE POSTS
-              </template>
-            </button>
+            <ProfileGrid
+              :gallery-items="galleryItems"
+              :posts-loading="postsLoading"
+              :show-grid="showGrid"
+              :is-own-profile="isOwnProfile"
+              :posts-page="postsPage"
+              :posts-last-page="postsLastPage"
+              @navigate="(path) => $router.push(path)"
+              @load-more="loadMorePosts"
+            />
           </div>
 
           <!-- COLLECTIONS tab -->
@@ -803,102 +637,18 @@ function showToast(message, type = 'success') {
       </main>
     </div>
 
-    <!-- ── EDIT PROFILE MODAL ── -->
-    <Transition name="modal">
-      <div v-if="showEditModal" class="fixed inset-0 z-[90] flex items-center justify-center p-4"
-        @click.self="closeEditModal">
-        <!-- Backdrop -->
-        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="closeEditModal"></div>
-
-        <!-- Modal content -->
-        <div class="edit-modal relative z-10 w-full max-w-lg rounded-2xl
-          border border-border bg-surface/95 backdrop-blur-xl
-          shadow-2xl shadow-black/50 overflow-hidden">
-
-          <!-- Modal header -->
-          <div class="flex items-center justify-between px-6 py-4 border-b border-border">
-            <div class="flex items-center gap-3">
-              <i class="bi bi-pencil-fill text-primary text-xl"></i>
-              <h2 class="text-sm font-black tracking-widest text-white">EDIT PROFILE</h2>
-            </div>
-            <button @click="closeEditModal"
-              class="w-8 h-8 rounded-lg flex items-center justify-center
-                text-white/30 hover:text-white/70 hover:bg-white/5 transition-all duration-200">
-              <i class="bi bi-x-lg text-lg"></i>
-            </button>
-          </div>
-
-          <!-- Avatar section in modal -->
-          <div class="px-6 pt-5 pb-4 border-b border-border/50">
-            <label class="text-white/30 font-bold tracking-wider text-xs block mb-3">PROFILE PICTURE</label>
-            <div class="flex items-center gap-4">
-              <div class="relative w-16 h-16 rounded-xl overflow-hidden border-2 border-primary/40
-                bg-surface flex items-center justify-center cursor-pointer group/modal-avatar"
-                @click="triggerAvatarUpload">
-                <img v-if="avatarPreview" :src="avatarPreview" class="w-full h-full object-cover" />
-                <img v-else-if="profile.avatar_url" :src="profile.avatar_url" class="w-full h-full object-cover" />
-                <i v-else class="bi bi-person-fill text-white/30 text-2xl"></i>
-                <div class="absolute inset-0 bg-black/50 flex items-center justify-center
-                  opacity-0 group-hover/modal-avatar:opacity-100 transition-opacity duration-200">
-                  <i v-if="avatarUploading" class="bi bi-arrow-repeat text-white text-lg animate-spin"></i>
-                  <i v-else class="bi bi-camera-fill text-white text-lg"></i>
-                </div>
-              </div>
-              <div>
-                <button @click="triggerAvatarUpload" :disabled="avatarUploading"
-                  class="text-xs font-bold tracking-wider text-primary hover:text-primary/80
-                    transition-colors duration-200 disabled:opacity-50">
-                  {{ avatarUploading ? 'UPLOADING...' : 'CHANGE PHOTO' }}
-                </button>
-                <p class="text-[10px] text-white/25 mt-1">JPEG, PNG, or WebP · Max 2 MB</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Bio section in modal -->
-          <div class="px-6 pt-4 pb-5">
-            <div class="flex items-center justify-between mb-2">
-              <label for="bio-textarea" class="text-white/30 font-bold tracking-wider text-xs">BIO</label>
-              <span class="text-[10px] font-bold tracking-wider"
-                :class="editBio.length > 450 ? 'text-red-400' : 'text-white/20'">
-                {{ editBio.length }} / 500
-              </span>
-            </div>
-            <textarea
-              id="bio-textarea"
-              v-model="editBio"
-              placeholder="Tell the world about yourself..."
-              rows="4"
-              maxlength="500"
-              class="bio-input w-full bg-dark/60 border border-border rounded-xl px-4 py-3
-                text-sm text-white placeholder-white/20 resize-none outline-none
-                focus:border-primary/50 focus:bg-dark/80 transition-all duration-200"
-            ></textarea>
-            <p class="text-[10px] text-white/20 mt-1.5">Your bio is visible on your public profile.</p>
-          </div>
-
-          <!-- Modal footer -->
-          <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-border bg-dark/30">
-            <button @click="closeEditModal"
-              class="px-5 py-2.5 rounded-lg text-xs font-black tracking-widest
-                text-white/50 hover:text-white/80 bg-surface border border-border
-                hover:border-white/20 transition-all duration-200">
-              CANCEL
-            </button>
-            <button @click="saveBio" :disabled="bioSaving"
-              class="px-6 py-2.5 rounded-lg text-xs font-black tracking-widest
-                bg-primary text-black hover:bg-primary/90
-                transition-all duration-200 flex items-center gap-2
-                disabled:opacity-50 disabled:cursor-not-allowed
-                shadow-lg shadow-primary/20">
-              <i v-if="bioSaving" class="bi bi-arrow-repeat text-sm animate-spin"></i>
-              <i v-else class="bi bi-save text-sm"></i>
-              {{ bioSaving ? 'SAVING...' : 'SAVE CHANGES' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
+    <!-- ── EDIT PROFILE MODAL (Extracted) ── -->
+    <EditProfileModal
+      :show-edit-modal="showEditModal"
+      :profile="profile"
+      :avatar-preview="avatarPreview"
+      :avatar-uploading="avatarUploading"
+      :bio-saving="bioSaving"
+      :initial-bio="editBio"
+      @close="closeEditModal"
+      @save="(bio) => { editBio = bio; saveBio() }"
+      @trigger-avatar-upload="triggerAvatarUpload"
+    />
   </div>
   </div>
 </template>
