@@ -49,7 +49,7 @@ async function save() {
     }
     // Update profile if bio or name changed
     await users.updateProfile({ name: name.value, bio: bio.value })
-    await authStore.fetchUser() // Refresh auth state
+    await authStore.hydrateAuthState() // Refresh auth state
     router.push('/profile')
   } catch (e) {
     error.value = e.message || 'Failed to update profile.'

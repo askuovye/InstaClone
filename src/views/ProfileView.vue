@@ -9,7 +9,7 @@ import { users, posts, follow } from '../services/api'
 const route = useRoute()
 const authStore = useAuthStore()
 const { user: authUser } = storeToRefs(authStore)
-const { fetchUser } = authStore
+const { hydrateAuthState } = authStore
 
 // ─── State ───────────────────────────────────────────────
 const activeTab = ref('recent')
@@ -364,7 +364,7 @@ async function handleAvatarChange(event) {
     avatarPreview.value = null
 
     // Update auth user in localStorage
-    await fetchUser()
+    await hydrateAuthState()
 
     showToast('Profile picture updated!', 'success')
   } catch (e) {
@@ -402,7 +402,7 @@ async function saveBio() {
     saveBioLocally(profile.value.username, editBio.value)
 
     // Update auth user in localStorage
-    await fetchUser()
+    await hydrateAuthState()
 
     showEditModal.value = false
     showToast('Bio saved successfully!', 'success')
