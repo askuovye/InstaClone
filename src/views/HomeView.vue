@@ -247,11 +247,6 @@ onUnmounted(() => {
                   group-hover/cmt:text-white/70 transition-colors"></i>
                 <span class="text-sm font-bold text-white/50">{{ post.comments_count || 0 }}</span>
               </button>
-
-              <button class="flex items-center justify-center w-8 h-8 rounded-lg
-                text-white/40 hover:text-white/70 transition-colors">
-                <i class="bi bi-send-fill text-xl"></i>
-              </button>
             </div>
 
             <!-- Caption -->
