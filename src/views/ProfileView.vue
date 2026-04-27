@@ -62,9 +62,7 @@ const postsLoading = ref(false)
 // Activity (derived from recent posts)
 const activity = ref([])
 
-// Comments (kept client-side for now — API comments are per-post, not per-profile)
-const comments = ref([])
-const newComment = ref('')
+
 
 const tabs = [
   { key: 'recent', label: 'RECENT ART' },
@@ -317,20 +315,7 @@ watch(profileUsername, () => {
   loadProfile()
 })
 
-function postComment() {
-  if (!newComment.value.trim()) return
-  comments.value.unshift({
-    username: authUser.value?.username || 'YOU',
-    time: 'JUST NOW',
-    text: newComment.value,
-    likes: 0,
-  })
-  newComment.value = ''
-}
 
-function likeComment(comment) {
-  comment.likes++
-}
 
 // ─── Avatar Upload ──────────────────────────────────────
 function triggerAvatarUpload() {
@@ -481,7 +466,7 @@ function showToast(message, type = 'success') {
           <span>{{ formatNumber(profile.followers_count) }} <span class="text-white/25">FOLLOWERS</span></span>
           <span>{{ formatNumber(profile.posts_count) }} <span class="text-white/25">POSTS</span></span>
         </div>
-        <button @click="toggleWatch"
+        <button v-if="!isOwnProfile && !isWatching" @click="toggleWatch"
           class="ml-auto btn-watch-sm flex items-center gap-1.5 px-4 py-1.5 rounded font-black text-xs tracking-widest"
           :class="isWatching ? 'bg-surface border border-border text-white/60' : 'bg-primary text-black'">
           <i class="bi text-sm" :class="isWatching ? 'bi-eye-slash' : 'bi-eye'"></i>
@@ -563,7 +548,7 @@ function showToast(message, type = 'success') {
           </div>
 
           <div class="flex gap-3 flex-shrink-0">
-            <button v-if="!isOwnProfile" @click="toggleWatch"
+            <button v-if="!isOwnProfile && !isWatching" @click="toggleWatch"
               class="watch-btn flex items-center gap-2 px-6 py-2.5 rounded font-black text-sm tracking-widest transition-all duration-300"
               :class="isWatching
                 ? 'bg-surface border border-border text-white/60 hover:border-white/30'
@@ -572,13 +557,6 @@ function showToast(message, type = 'success') {
               {{ isWatching ? 'WATCHING' : 'WATCH' }}
             </button>
 
-            <button v-if="!isOwnProfile"
-              class="flex items-center gap-2 px-5 py-2.5 rounded font-black text-sm tracking-widest
-                bg-surface border border-border text-white/70
-                hover:border-white/30 hover:text-white transition-all duration-200">
-              <i class="bi bi-envelope text-base"></i>
-              MESSAGE
-            </button>
 
             <button v-if="isOwnProfile" @click="$router.push('/profile/edit')"
               class="flex items-center gap-2 px-5 py-2.5 rounded font-black text-sm tracking-widest
@@ -821,75 +799,7 @@ function showToast(message, type = 'success') {
           </div>
         </Transition>
 
-        <!-- ── COMMUNITY FEEDBACK ── -->
-        <div class="mt-12 transition-all duration-700 delay-300"
-          :class="showGrid ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'">
-          <h2 class="text-sm font-black tracking-widest text-white/60 mb-6">COMMUNITY FEEDBACK</h2>
 
-          <!-- Comment input -->
-          <div class="flex gap-3 mb-6">
-            <div class="w-9 h-9 rounded-lg bg-surface border border-border flex items-center justify-center flex-shrink-0">
-              <i class="bi bi-person-fill text-white/30 text-sm"></i>
-            </div>
-            <div class="flex-1">
-              <textarea
-                v-model="newComment"
-                placeholder="Leave a comment..."
-                rows="3"
-                class="comment-input w-full bg-surface/60 border border-border rounded-xl px-4 py-3
-                  text-sm text-white placeholder-white/20 resize-none outline-none
-                  focus:border-primary/50 focus:bg-surface transition-all duration-200"
-                @keydown.ctrl.enter="postComment"
-              ></textarea>
-              <div class="flex justify-end mt-2">
-                <button @click="postComment"
-                  class="px-5 py-2 bg-surface border border-border rounded-lg
-                    text-xs font-black tracking-widest text-white/60
-                    hover:border-primary/50 hover:text-primary transition-all duration-200">
-                  POST COMMENT
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Comments list -->
-          <TransitionGroup name="comment-list" tag="div" class="flex flex-col gap-5">
-            <div v-for="comment in comments" :key="comment.username + comment.time"
-              class="comment-card flex gap-3 group">
-              <div class="w-9 h-9 rounded-lg bg-surface border border-border flex items-center justify-center flex-shrink-0 mt-0.5">
-                <i class="bi bi-person-fill text-white/30 text-sm"></i>
-              </div>
-              <div class="flex-1">
-                <div class="flex items-baseline gap-2 mb-1.5">
-                  <span class="text-xs font-black tracking-wider text-white">{{ comment.username }}</span>
-                  <span class="text-xs text-white/25 font-bold">{{ comment.time }}</span>
-                </div>
-                <p class="text-sm text-white/55 leading-relaxed">{{ comment.text }}</p>
-                <div class="flex items-center gap-4 mt-2">
-                  <button @click="likeComment(comment)"
-                    class="flex items-center gap-1.5 text-xs text-white/30
-                      hover:text-primary transition-colors duration-150 group/like">
-                    <i class="bi bi-heart-fill text-sm
-                      group-hover/like:scale-125 transition-transform duration-150"></i>
-                    {{ comment.likes }}
-                  </button>
-                  <button class="text-xs text-white/25 hover:text-white/50 font-bold tracking-wider transition-colors">
-                    ↩ REPLY
-                  </button>
-                </div>
-              </div>
-            </div>
-          </TransitionGroup>
-
-          <!-- Load more -->
-          <button class="load-more w-full mt-8 py-4 border border-border rounded-xl
-            text-xs font-black tracking-widest text-white/30
-            hover:border-primary/30 hover:text-primary/70 transition-all duration-300
-            flex items-center justify-center gap-2">
-            <i class="bi bi-chevron-down text-sm"></i>
-            LOAD MORE CONVERSATIONS
-          </button>
-        </div>
       </main>
     </div>
 
