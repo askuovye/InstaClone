@@ -1,182 +1,282 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useIntersectionObserver } from '@vueuse/core'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
-import { storeToRefs } from 'pinia'
-import { postService as postsApi } from '../services/post.service'
-import { userService as usersApi } from '../services/user.service'
-import AccountCard from '../components/profile/AccountCard.vue'
-import ExploreSuggestions from '../components/explore/ExploreSuggestions.vue'
-import { useFollowsStore } from '../stores/follows'
-import PostCard from '../components/post/PostCard.vue'
+import { ref, onMounted, computed } from "vue";
+import { useIntersectionObserver } from "@vueuse/core";
+import { useRouter } from "vue-router";
+import { useAuthStore } from "../stores/auth";
+import { storeToRefs } from "pinia";
+import { postService as postsApi } from "../services/post.service";
+import { userService as usersApi } from "../services/user.service";
+import AccountCard from "../components/profile/AccountCard.vue";
+import ExploreSuggestions from "../components/explore/ExploreSuggestions.vue";
+import { useFollowsStore } from "../stores/follows";
+import PostCard from "../components/post/PostCard.vue";
 
-const router = useRouter()
-const authStore = useAuthStore()
-const { user: authUser } = storeToRefs(authStore)
-const followsStore = useFollowsStore()
+const router = useRouter();
+const authStore = useAuthStore();
+const { user: authUser } = storeToRefs(authStore);
+const followsStore = useFollowsStore();
 
 // ─── State ────────────────────────────────────────────────
-const headerIn = ref(false)
-const gridIn = ref(false)
+const headerIn = ref(false);
+const gridIn = ref(false);
 
-const explorePosts = ref([])
-const exploreHasMore = ref(true)
-const isLoading = ref(true)
-const loadError = ref(null)
+const explorePosts = ref([]);
+const exploreHasMore = ref(true);
+const isLoading = ref(true);
+const loadError = ref(null);
 
-const suggestedUsers = ref([])
-const isSuggestionsLoading = ref(true)
+const suggestedUsers = ref([]);
+const isSuggestionsLoading = ref(true);
 
-const sentinel = ref(null)
+// ─── Suggested Posts State ────────────────────────────────
+const suggestedPosts = ref([]);
+const isSuggestedPostsLoading = ref(false);
+const suggestedPostsError = ref(null);
+const suggestedPostsGridIn = ref(false);
+
+const explorePage = ref(1);
+const sentinel = ref(null);
 
 useIntersectionObserver(sentinel, ([entry]) => {
-  if (entry.isIntersecting && exploreHasMore.value && !isLoading.value && !isSuggestionsLoading.value) {
-    loadExplorePosts(true)
+  if (
+    entry.isIntersecting &&
+    exploreHasMore.value &&
+    !isLoading.value &&
+    !isSuggestionsLoading.value
+  ) {
+    loadExplorePosts(true);
   }
-})
+});
 
 // Reactive filtered list to hide followed users immediately
 const filteredSuggestions = computed(() => {
-  return suggestedUsers.value.filter(u => !followsStore.isFollowing(u.id))
-})
-
-
+  return suggestedUsers.value.filter((u) => !followsStore.isFollowing(u.id));
+});
 
 // ─── Grid span patterns (visual variety) ──────────────────
-const spanPatterns = ['hero', 'tall', 'tall', 'square', 'square', 'wide', 'square', 'square', 'tall', 'square', 'square', 'square']
+const spanPatterns = [
+  "hero",
+  "tall",
+  "tall",
+  "square",
+  "square",
+  "wide",
+  "square",
+  "square",
+  "tall",
+  "square",
+  "square",
+  "square",
+];
 
 function getSpan(index) {
-  return spanPatterns[index % spanPatterns.length]
+  return spanPatterns[index % spanPatterns.length];
 }
 
 // ─── Load posts for explore ───────────────────────────────
 async function loadExplorePosts(append = false) {
   if (!append) {
-    isLoading.value = true
-    explorePage.value = 1
-    exploreHasMore.value = true
-    gridIn.value = false
+    isLoading.value = true;
+    explorePage.value = 1;
+    exploreHasMore.value = true;
+    gridIn.value = false;
   }
 
-  loadError.value = null
+  loadError.value = null;
 
   try {
     // Wait for suggestions to be ready, then use their IDs
-    let users = suggestedUsers.value
+    let users = suggestedUsers.value;
 
     // If suggestions haven't loaded yet, fetch them directly
     if (users.length === 0) {
-      const data = await usersApi.suggestions({ limit: 40 })
-      users = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : [])
-      users = users.filter(u => u.id !== authUser.value?.id).slice(0, 8)
+      const data = await usersApi.suggestions({ limit: 40 });
+      users = Array.isArray(data.data)
+        ? data.data
+        : Array.isArray(data)
+          ? data
+          : [];
+      users = users.filter((u) => u.id !== authUser.value?.id).slice(0, 8);
     }
 
     if (users.length === 0) {
-      explorePosts.value = []
-      exploreHasMore.value = false
-      return
+      explorePosts.value = [];
+      exploreHasMore.value = false;
+      return;
     }
 
     // Fetch posts from each user in parallel
     const results = await Promise.allSettled(
-      users.map(u => postsApi.byUser(u.id, explorePage.value))
-    )
+      users.map((u) => postsApi.byUser(u.id, explorePage.value)),
+    );
 
     // Flatten all successful results
     const newPosts = results
-      .filter(r => r.status === 'fulfilled')
-      .flatMap(r => Array.isArray(r.value?.data) ? r.value.data : [])
+      .filter((r) => r.status === "fulfilled")
+      .flatMap((r) => (Array.isArray(r.value?.data) ? r.value.data : []));
 
     // Shuffle for visual variety
     for (let i = newPosts.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [newPosts[i], newPosts[j]] = [newPosts[j], newPosts[i]]
+      [newPosts[i], newPosts[j]] = [newPosts[j], newPosts[i]];
     }
 
     if (append) {
-      explorePosts.value.push(...newPosts)
+      explorePosts.value.push(...newPosts);
     } else {
-      explorePosts.value = newPosts
+      explorePosts.value = newPosts;
     }
 
     // Has more if any user had results on this page
-    exploreHasMore.value = newPosts.length > 0
-    if (exploreHasMore.value) explorePage.value++
-
+    exploreHasMore.value = newPosts.length > 0;
+    if (exploreHasMore.value) explorePage.value++;
   } catch (e) {
-    console.error('Explore load failed:', e)
-    if (!append) loadError.value = e.message || 'Failed to load posts'
+    console.error("Explore load failed:", e);
+    if (!append) loadError.value = e.message || "Failed to load posts";
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
 }
 
 // ─── Like / Unlike ────────────────────────────────────────
 async function toggleLike(post) {
-  const wasLiked = post.liked_by_me
-  post.liked_by_me = !wasLiked
-  post.likes_count = (post.likes_count || 0) + (wasLiked ? -1 : 1)
+  const wasLiked = post.liked_by_me;
+  post.liked_by_me = !wasLiked;
+  post.likes_count = (post.likes_count || 0) + (wasLiked ? -1 : 1);
 
   try {
     if (wasLiked) {
-      await postsApi.unlike(post.id)
+      await postsApi.unlike(post.id);
     } else {
-      await postsApi.like(post.id)
+      await postsApi.like(post.id);
     }
   } catch {
-    post.liked_by_me = wasLiked
-    post.likes_count = (post.likes_count || 0) + (wasLiked ? 1 : -1)
+    post.liked_by_me = wasLiked;
+    post.likes_count = (post.likes_count || 0) + (wasLiked ? 1 : -1);
   }
 }
 
 // ─── Helpers ──────────────────────────────────────────────
 function goToProfile(username) {
-  if (username) router.push(`/profile/${username}`)
+  if (username) router.push(`/profile/${username}`);
 }
 
 // ─── Load suggestions ───────────────────────────────────────
 async function loadSuggestions() {
-  isSuggestionsLoading.value = true
+  isSuggestionsLoading.value = true;
   try {
     // Fetch a larger pool to find non-followed users
-    const data = await usersApi.suggestions({ limit: 40 })
-    let users = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : [])
-    
+    const data = await usersApi.suggestions({ limit: 40 });
+    let users = Array.isArray(data.data)
+      ? data.data
+      : Array.isArray(data)
+        ? data
+        : [];
+
     // Filter: Not following and not me
-    const filtered = users.filter(u => {
-      const isMe = u.id === authUser.value?.id
-      const isFollowing = followsStore.isFollowing(u.id)
-      return !isMe && !isFollowing
-    })
+    const filtered = users.filter((u) => {
+      const isMe = u.id === authUser.value?.id;
+      const isFollowing = followsStore.isFollowing(u.id);
+      return !isMe && !isFollowing;
+    });
 
     // Shuffle for randomness on refresh
     for (let i = filtered.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [filtered[i], filtered[j]] = [filtered[j], filtered[i]]
+      [filtered[i], filtered[j]] = [filtered[j], filtered[i]];
     }
 
     // Limit to 5 as requested
-    suggestedUsers.value = filtered.slice(0, 5)
+    suggestedUsers.value = filtered.slice(0, 5);
   } catch (e) {
-    console.error('Failed to load suggestions:', e)
+    console.error("Failed to load suggestions:", e);
   } finally {
-    isSuggestionsLoading.value = false
+    isSuggestionsLoading.value = false;
+  }
+}
+
+// ─── Load suggested posts from unfollowed users (max 2 per user) ─
+async function loadSuggestedPosts() {
+  isSuggestedPostsLoading.value = true;
+  suggestedPostsError.value = null;
+  suggestedPostsGridIn.value = false;
+
+  try {
+    // Get all unfollowed users from suggestions (broader pool)
+    const data = await usersApi.suggestions({ limit: 60 });
+    let allUsers = Array.isArray(data.data)
+      ? data.data
+      : Array.isArray(data)
+        ? data
+        : [];
+
+    // Filter: Not me and not following
+    const unfollowedUsers = allUsers.filter((u) => {
+      const isMe = u.id === authUser.value?.id;
+      const isFollowing = followsStore.isFollowing(u.id);
+      return !isMe && !isFollowing;
+    });
+
+    if (unfollowedUsers.length === 0) {
+      suggestedPosts.value = [];
+      return;
+    }
+
+    // Fetch posts from unfollowed users in parallel (page 1 only)
+    // Limit to 2 posts per user to avoid overwhelming the feed
+    const results = await Promise.allSettled(
+      unfollowedUsers.map((u) => postsApi.byUser(u.id, 1)),
+    );
+
+    // Flatten all successful results and limit to 2 posts per user
+    let allSuggestedPosts = [];
+    results.forEach((result) => {
+      if (result.status === "fulfilled" && Array.isArray(result.value?.data)) {
+        // Take max 2 posts from this user
+        const userPosts = result.value.data.slice(0, 2);
+        allSuggestedPosts.push(...userPosts);
+      }
+    });
+
+    // Shuffle for visual variety
+    for (let i = allSuggestedPosts.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allSuggestedPosts[i], allSuggestedPosts[j]] = [
+        allSuggestedPosts[j],
+        allSuggestedPosts[i],
+      ];
+    }
+
+    // Show first 12-15 posts
+    suggestedPosts.value = allSuggestedPosts.slice(0, 15);
+  } catch (e) {
+    console.error("Failed to load suggested posts:", e);
+    suggestedPostsError.value = e.message || "Failed to load posts";
+  } finally {
+    isSuggestedPostsLoading.value = false;
+    setTimeout(() => {
+      suggestedPostsGridIn.value = true;
+    }, 100);
   }
 }
 
 // ─── Lifecycle ────────────────────────────────────────────
 onMounted(async () => {
-  setTimeout(() => { headerIn.value = true }, 80)
-  await loadFollowingIfNeeded()
-  await loadSuggestions()         // await instead of fire-and-forget
-  await loadExplorePosts()
-  setTimeout(() => { gridIn.value = true }, 200)
-})
+  setTimeout(() => {
+    headerIn.value = true;
+  }, 80);
+  await loadFollowingIfNeeded();
+  await loadSuggestions(); // await instead of fire-and-forget
+  await loadSuggestedPosts(); // Load suggested posts from unfollowed users
+  await loadExplorePosts();
+  setTimeout(() => {
+    gridIn.value = true;
+  }, 200);
+});
 
 async function loadFollowingIfNeeded() {
   if (authUser.value?.id && followsStore.followingIds.size === 0) {
-    await followsStore.loadFollowing(authUser.value.id)
+    await followsStore.loadFollowing(authUser.value.id);
   }
 }
 </script>
@@ -184,26 +284,36 @@ async function loadFollowingIfNeeded() {
 <template>
   <div>
     <div class="explore-page pb-8">
-
       <!-- ── Page Header ── -->
-      <div class="px-6 md:px-10 pt-6 pb-4 border-b border-border/50
-        transition-all duration-600"
-        :class="headerIn ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'">
+      <div
+        class="px-6 md:px-10 pt-6 pb-4 border-b border-border/50 transition-all duration-600"
+        :class="
+          headerIn ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
+        "
+      >
         <div class="flex items-center justify-between">
-          <h1 class="page-title font-black text-3xl tracking-tight">DISCOVER</h1>
-          <button @click="loadExplorePosts" :disabled="isLoading"
-            class="text-xs font-bold tracking-wider text-primary/60 hover:text-primary transition-colors
-              disabled:opacity-50 flex items-center gap-1">
-            <i class="bi bi-arrow-repeat text-sm" :class="{ 'animate-spin': isLoading }"></i>
+          <h1 class="page-title font-black text-3xl tracking-tight">
+            DISCOVER
+          </h1>
+          <button
+            @click="loadExplorePosts"
+            :disabled="isLoading"
+            class="text-xs font-bold tracking-wider text-primary/60 hover:text-primary transition-colors disabled:opacity-50 flex items-center gap-1"
+          >
+            <i
+              class="bi bi-arrow-repeat text-sm"
+              :class="{ 'animate-spin': isLoading }"
+            ></i>
             SHUFFLE
           </button>
         </div>
-        <p class="text-xs text-white/25 mt-1">Discover posts from the community</p>
+        <p class="text-xs text-white/25 mt-1">
+          Discover posts from the community
+        </p>
       </div>
 
       <!-- ── Content ── -->
       <div class="px-4 md:px-6 pt-5">
-
         <!-- ── Suggested Creators (Extracted) ── -->
         <ExploreSuggestions
           :suggestions="filteredSuggestions"
@@ -211,58 +321,150 @@ async function loadFollowingIfNeeded() {
           @refresh="loadSuggestions"
         />
 
-        <!-- Loading -->
-        <div v-if="isLoading" class="grid grid-cols-3 gap-2">
-          <div v-for="i in 9" :key="i"
-            class="rounded-xl bg-surface animate-pulse"
-            :class="i === 1 ? 'col-span-2 row-span-2 aspect-square' : 'aspect-square'">
+        <!-- ═══ SUGGESTED POSTS SECTION ═══ -->
+        <div class="mb-10">
+          <!-- Header -->
+          <div class="mb-4 flex items-center gap-2">
+            <h2 class="text-lg font-black tracking-widest text-white">
+              SUGGESTED FOR YOU
+            </h2>
+            <span class="text-xs text-white/40 font-bold"
+              >{{ suggestedPosts.length }} posts</span
+            >
+          </div>
+
+          <!-- Loading -->
+          <div
+            v-if="isSuggestedPostsLoading"
+            class="grid grid-cols-3 gap-2 mb-6"
+          >
+            <div
+              v-for="i in 9"
+              :key="`suggested-skeleton-${i}`"
+              class="rounded-xl bg-surface animate-pulse"
+              :class="
+                i === 1
+                  ? 'col-span-2 row-span-2 aspect-square'
+                  : 'aspect-square'
+              "
+            ></div>
+          </div>
+
+          <!-- Error -->
+          <div
+            v-else-if="suggestedPostsError"
+            class="rounded-lg bg-surface/30 border border-red-400/20 p-4 text-center mb-6"
+          >
+            <p class="text-white/40 text-xs font-bold tracking-wider">
+              {{ suggestedPostsError }}
+            </p>
+          </div>
+
+          <!-- Empty -->
+          <div
+            v-else-if="suggestedPosts.length === 0"
+            class="rounded-lg bg-surface/30 border border-border p-8 text-center mb-6"
+          >
+            <i class="bi bi-inbox text-white/20 text-2xl mb-2 block"></i>
+            <p class="text-white/40 text-xs font-bold tracking-wider">
+              No suggested posts yet
+            </p>
+          </div>
+
+          <!-- Posts Grid -->
+          <div
+            v-else
+            class="explore-grid suggested-grid"
+            :class="
+              suggestedPostsGridIn ? 'grid-section-in' : 'grid-section-out'
+            "
+          >
+            <PostCard
+              v-for="(post, i) in suggestedPosts"
+              :key="`suggested-${post.id}`"
+              :post="post"
+              :is-grid="true"
+              :class="[
+                `span-${getSpan(i)}`,
+                suggestedPostsGridIn ? 'item-in' : 'item-out',
+              ]"
+              :style="{ animationDelay: i * 40 + 'ms' }"
+              @like="toggleLike"
+              @navigate="(id) => $router.push(`/posts/${id}`)"
+              @navigate-profile="goToProfile"
+            />
           </div>
         </div>
 
+        <!-- Loading -->
+        <div v-if="isLoading" class="grid grid-cols-3 gap-2">
+          <div
+            v-for="i in 9"
+            :key="i"
+            class="rounded-xl bg-surface animate-pulse"
+            :class="
+              i === 1 ? 'col-span-2 row-span-2 aspect-square' : 'aspect-square'
+            "
+          ></div>
+        </div>
+
         <!-- Error -->
-        <div v-else-if="loadError"
-          class="flex flex-col items-center justify-center py-24 text-center">
-          <i class="bi bi-exclamation-triangle-fill text-red-400/30 mb-4" style="font-size: 3rem"></i>
-          <p class="text-white/40 font-bold tracking-wider text-sm mb-4">{{ loadError }}</p>
-          <button @click="loadExplorePosts"
-            class="px-5 py-2 bg-primary/10 border border-primary/30 text-primary rounded-lg
-              text-xs font-black tracking-widest hover:bg-primary/20 transition-all">
+        <div
+          v-else-if="loadError"
+          class="flex flex-col items-center justify-center py-24 text-center"
+        >
+          <i
+            class="bi bi-exclamation-triangle-fill text-red-400/30 mb-4"
+            style="font-size: 3rem"
+          ></i>
+          <p class="text-white/40 font-bold tracking-wider text-sm mb-4">
+            {{ loadError }}
+          </p>
+          <button
+            @click="loadExplorePosts"
+            class="px-5 py-2 bg-primary/10 border border-primary/30 text-primary rounded-lg text-xs font-black tracking-widest hover:bg-primary/20 transition-all"
+          >
             TRY AGAIN
           </button>
         </div>
 
         <!-- Empty -->
-        <div v-else-if="explorePosts.length === 0"
-          class="flex flex-col items-center justify-center py-24 text-center">
-          <div class="w-20 h-20 rounded-2xl bg-surface/60 border border-border
-            flex items-center justify-center mb-6">
+        <div
+          v-else-if="explorePosts.length === 0"
+          class="flex flex-col items-center justify-center py-24 text-center"
+        >
+          <div
+            class="w-20 h-20 rounded-2xl bg-surface/60 border border-border flex items-center justify-center mb-6"
+          >
             <i class="bi bi-images text-white/20" style="font-size: 2.5rem"></i>
           </div>
-          <h2 class="text-lg font-black tracking-widest text-white/40 mb-2">NO POSTS YET</h2>
+          <h2 class="text-lg font-black tracking-widest text-white/40 mb-2">
+            NO POSTS YET
+          </h2>
           <p class="text-sm text-white/20 max-w-sm">
             Create your first post or follow some users to see content here.
           </p>
-          <router-link to="/create"
-            class="mt-4 px-5 py-2 bg-primary text-black rounded-lg
-              text-xs font-black tracking-widest hover:bg-primary/90 transition-all">
+          <router-link
+            to="/create"
+            class="mt-4 px-5 py-2 bg-primary text-black rounded-lg text-xs font-black tracking-widest hover:bg-primary/90 transition-all"
+          >
             CREATE A POST
           </router-link>
         </div>
 
         <!-- ═══ POST GRID ═══ -->
-        <div v-else class="explore-grid"
-          :class="gridIn ? 'grid-section-in' : 'grid-section-out'">
-
+        <div
+          v-else
+          class="explore-grid"
+          :class="gridIn ? 'grid-section-in' : 'grid-section-out'"
+        >
           <PostCard
             v-for="(post, i) in explorePosts"
             :key="post.id"
             :post="post"
             :is-grid="true"
-            :class="[
-              `span-${getSpan(i)}`,
-              gridIn ? 'item-in' : 'item-out'
-            ]"
-            :style="{ animationDelay: (i * 50) + 'ms' }"
+            :class="[`span-${getSpan(i)}`, gridIn ? 'item-in' : 'item-out']"
+            :style="{ animationDelay: i * 50 + 'ms' }"
             @like="toggleLike"
             @navigate="(id) => $router.push(`/posts/${id}`)"
             @navigate-profile="goToProfile"
@@ -270,8 +472,14 @@ async function loadFollowingIfNeeded() {
         </div>
 
         <!-- Sentinel for Infinite Scroll -->
-        <div ref="sentinel" class="h-10 w-full flex items-center justify-center">
-          <i v-if="isLoading && explorePosts.length > 0" class="bi bi-arrow-repeat text-primary text-2xl animate-spin"></i>
+        <div
+          ref="sentinel"
+          class="h-10 w-full flex items-center justify-center"
+        >
+          <i
+            v-if="isLoading && explorePosts.length > 0"
+            class="bi bi-arrow-repeat text-primary text-2xl animate-spin"
+          ></i>
         </div>
       </div>
     </div>
@@ -279,11 +487,13 @@ async function loadFollowingIfNeeded() {
 </template>
 
 <style scoped>
-.explore-page { font-family: 'Inter', sans-serif; }
+.explore-page {
+  font-family: "Inter", sans-serif;
+}
 
 /* ─── Page title ─── */
 .page-title {
-  background: linear-gradient(135deg, #fff 50%, rgba(255,255,255,0.5) 100%);
+  background: linear-gradient(135deg, #fff 50%, rgba(255, 255, 255, 0.5) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -291,12 +501,20 @@ async function loadFollowingIfNeeded() {
 }
 
 /* ─── Grid section entrance ─── */
-.grid-section-out { opacity: 0; }
-.grid-section-in  { animation: grid-section-appear 0.5s ease both; }
+.grid-section-out {
+  opacity: 0;
+}
+.grid-section-in {
+  animation: grid-section-appear 0.5s ease both;
+}
 
 @keyframes grid-section-appear {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* ─── Masonry Grid ─── */
@@ -307,31 +525,63 @@ async function loadFollowingIfNeeded() {
   gap: 6px;
 }
 
-.span-hero   { grid-column: span 2; grid-row: span 2; }
-.span-tall   { grid-column: span 1; grid-row: span 2; }
-.span-wide   { grid-column: span 2; grid-row: span 1; }
-.span-square { grid-column: span 1; grid-row: span 1; }
+.span-hero {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+.span-tall {
+  grid-column: span 1;
+  grid-row: span 2;
+}
+.span-wide {
+  grid-column: span 2;
+  grid-row: span 1;
+}
+.span-square {
+  grid-column: span 1;
+  grid-row: span 1;
+}
 
 /* ─── Item entrance ─── */
-.item-out { opacity: 0; transform: scale(0.96) translateY(12px); }
-.item-in  { animation: item-appear 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+.item-out {
+  opacity: 0;
+  transform: scale(0.96) translateY(12px);
+}
+.item-in {
+  animation: item-appear 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
 
 @keyframes item-appear {
-  from { opacity: 0; transform: scale(0.96) translateY(12px); }
-  to   { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 /* ─── Overlay fade ─── */
-.overlay-fade-enter-active { transition: opacity 0.2s ease; }
-.overlay-fade-leave-active { transition: opacity 0.15s ease; }
+.overlay-fade-enter-active {
+  transition: opacity 0.2s ease;
+}
+.overlay-fade-leave-active {
+  transition: opacity 0.15s ease;
+}
 .overlay-fade-enter-from,
-.overlay-fade-leave-to { opacity: 0; }
+.overlay-fade-leave-to {
+  opacity: 0;
+}
 
 /* ─── Scanlines ─── */
 .scanlines {
   background: repeating-linear-gradient(
-    to bottom, transparent, transparent 2px,
-    rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 4px
+    to bottom,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.12) 2px,
+    rgba(0, 0, 0, 0.12) 4px
   );
 }
 
@@ -341,9 +591,18 @@ async function loadFollowingIfNeeded() {
     grid-template-columns: repeat(2, 1fr);
     grid-auto-rows: 160px;
   }
-  .span-hero  { grid-column: span 2; grid-row: span 2; }
-  .span-tall  { grid-column: span 1; grid-row: span 2; }
-  .span-wide  { grid-column: span 2; grid-row: span 1; }
+  .span-hero {
+    grid-column: span 2;
+    grid-row: span 2;
+  }
+  .span-tall {
+    grid-column: span 1;
+    grid-row: span 2;
+  }
+  .span-wide {
+    grid-column: span 2;
+    grid-row: span 1;
+  }
 }
 
 @media (max-width: 600px) {
@@ -352,16 +611,59 @@ async function loadFollowingIfNeeded() {
     grid-auto-rows: 130px;
     gap: 4px;
   }
-  .span-hero  { grid-column: span 2; grid-row: span 2; }
-  .span-tall  { grid-column: span 1; grid-row: span 2; }
-  .span-wide  { grid-column: span 2; grid-row: span 1; }
-  .span-square{ grid-column: span 1; grid-row: span 1; }
+  .span-hero {
+    grid-column: span 2;
+    grid-row: span 2;
+  }
+  .span-tall {
+    grid-column: span 1;
+    grid-row: span 2;
+  }
+  .span-wide {
+    grid-column: span 2;
+    grid-row: span 1;
+  }
+  .span-square {
+    grid-column: span 1;
+    grid-row: span 1;
+  }
+}
+
+/* ─── Suggested Posts Grid ─── */
+.suggested-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: 180px;
+  gap: 6px;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 900px) {
+  .suggested-grid {
+    grid-template-columns: repeat(2, 1fr);
+    grid-auto-rows: 160px;
+  }
+}
+
+@media (max-width: 600px) {
+  .suggested-grid {
+    grid-template-columns: repeat(2, 1fr);
+    grid-auto-rows: 130px;
+    gap: 4px;
+  }
 }
 
 /* ─── Pulse for skeleton ─── */
 @keyframes pulse {
-  0%, 100% { opacity: 0.4; }
-  50%      { opacity: 0.7; }
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
-.animate-pulse { animation: pulse 1.5s ease-in-out infinite; }
+.animate-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
 </style>
