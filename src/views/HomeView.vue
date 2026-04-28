@@ -1,10 +1,11 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useIntersectionObserver } from '@vueuse/core'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { useFeedStore } from '../stores/feed'
+import { useFeedStore } from '../stores/feed.store'
 import { storeToRefs } from 'pinia'
-import { timeAgo } from '../utils/dates'
+import PostCard from '../components/post/PostCard.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -21,22 +22,20 @@ const {
   feedSource
 } = storeToRefs(feedStore)
 
+// ─── State ────────────────────────────────────────────────
 const feedVisible = ref(false)
-const activeMenuPostId = ref(null)
+const sentinel = ref(null)
+
+useIntersectionObserver(sentinel, ([entry]) => {
+  if (entry.isIntersecting && hasMore.value && !loadingMore.value && !initialLoad.value) {
+    loadFeed(true)
+  }
+})
 
 const loadFeed = (append = false) => feedStore.loadFeed(append)
 const toggleLike = (post) => feedStore.toggleLike(post.id)
 
 // ─── Helpers ──────────────────────────────────────────────
-function formatK(n) {
-  if (!n) return '0'
-  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
-  return n.toString()
-}
-
-// Local timeAgo is now imported from utils/dates.js
-
 function navigateToProfile(username) {
   if (username) router.push(`/profile/${username}`)
 }
@@ -44,7 +43,7 @@ function navigateToProfile(username) {
 async function handleDeletePost(post) {
   if (!confirm('Are you sure you want to delete this post?')) return
   try {
-    const { posts: postsApi } = await import('../services/api')
+    const { postService: postsApi } = await import('../services/post.service')
     await postsApi.delete(post.id)
     feedStore.removePost(post.id)
   } catch (e) {
@@ -52,38 +51,15 @@ async function handleDeletePost(post) {
   }
 }
 
-function toggleMenu(postId) {
-  activeMenuPostId.value = activeMenuPostId.value === postId ? null : postId
-}
-
-function handleOutsideClick(e) {
-  if (activeMenuPostId.value && !e.target.closest('.post-menu-container')) {
-    activeMenuPostId.value = null
-  }
-}
-
-// ─── Scroll (infinite scroll) ─────────────────────────────
-let scrollHandler = null
-
+// ─── Scroll (infinite scroll logic replaced by IntersectionObserver) ─────────────────────────────
 onMounted(async () => {
   if (feedPosts.value.length === 0) {
     await loadFeed()
   }
   setTimeout(() => { feedVisible.value = true }, 150)
-
-  scrollHandler = () => {
-    if (hasMore.value && !loadingMore.value) {
-      const nearBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 600
-      if (nearBottom) loadFeed(true)
-    }
-  }
-  window.addEventListener('scroll', scrollHandler)
-  window.addEventListener('click', handleOutsideClick)
 })
 
 onUnmounted(() => {
-  if (scrollHandler) window.removeEventListener('scroll', scrollHandler)
-  window.removeEventListener('click', handleOutsideClick)
 })
 </script>
 
@@ -161,105 +137,19 @@ onUnmounted(() => {
         <div v-else class="posts-list flex flex-col gap-0 transition-all duration-500"
           :class="feedVisible ? 'opacity-100' : 'opacity-0'">
 
-          <article v-for="(post, i) in feedPosts" :key="post.id"
-            class="post-card mb-8"
+          <PostCard
+            v-for="(post, i) in feedPosts"
+            :key="post.id"
+            :post="post"
+            :is-auth-user="authUser?.id === post.user_id || authUser?.id === post.user?.id"
             :class="feedVisible ? 'post-in' : 'post-out'"
-            :style="{ animationDelay: (i * 80) + 'ms' }">
-
-            <!-- Post Header -->
-            <div class="post-header flex items-center gap-3 mb-3">
-              <div class="w-10 h-10 rounded-xl overflow-hidden bg-surface border border-border
-                flex items-center justify-center flex-shrink-0 cursor-pointer
-                hover:border-primary/40 transition-colors"
-                @click="navigateToProfile(post.user?.username)">
-                <img v-if="post.user?.avatar_url" :src="post.user.avatar_url" class="w-full h-full object-cover" />
-                <i v-else class="bi bi-person-fill text-white/30"></i>
-              </div>
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-black tracking-wider text-white cursor-pointer hover:text-primary transition-colors"
-                  @click="navigateToProfile(post.user?.username)">
-                  {{ post.user?.username || post.user?.name || 'Unknown' }}
-                </p>
-                <p class="text-xs text-white/25 font-bold">{{ timeAgo(post.created_at) }}</p>
-              </div>
-              <div class="relative post-menu-container">
-                <button @click.stop="toggleMenu(post.id)" 
-                  class="w-8 h-8 flex items-center justify-center rounded-lg
-                  text-white/30 hover:text-white hover:bg-white/5 transition-all"
-                  :class="{ 'bg-white/10 text-white': activeMenuPostId === post.id }">
-                  <i class="bi bi-three-dots-vertical text-xl"></i>
-                </button>
-
-                <!-- Dropdown Menu -->
-                <Transition name="fade-scale">
-                  <div v-if="activeMenuPostId === post.id" 
-                    class="absolute right-0 mt-2 w-48 bg-[#1a1b23] border border-white/10 rounded-xl shadow-2xl z-[100] overflow-hidden"
-                    @click="activeMenuPostId = null">
-                    <button @click="router.push(`/profile/${post.user?.username}`)"
-                      class="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors text-left">
-                      <i class="bi bi-person-badge"></i>
-                      <span>Show the creator</span>
-                    </button>
-                    
-                    <button v-if="authUser?.id === post.user_id || authUser?.id === post.user?.id" 
-                      @click="router.push(`/posts/${post.id}/edit`)"
-                      class="w-full flex items-center gap-3 px-4 py-3 text-sm text-primary/70 hover:text-primary hover:bg-primary/5 transition-colors text-left border-t border-white/5">
-                      <i class="bi bi-pencil-square"></i>
-                      <span>Edit post</span>
-                    </button>
-
-                    <button v-if="authUser?.id === post.user_id || authUser?.id === post.user?.id" 
-                      @click="handleDeletePost(post)"
-                      class="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400/70 hover:text-red-400 hover:bg-red-400/5 transition-colors text-left border-t border-white/5">
-                      <i class="bi bi-trash"></i>
-                      <span>Delete post</span>
-                    </button>
-                  </div>
-                </Transition>
-              </div>
-            </div>
-
-            <!-- Post Image -->
-            <div @click="$router.push(`/posts/${post.id}`)" class="post-image-wrap relative overflow-hidden rounded-xl cursor-pointer group"
-              style="aspect-ratio: 1/1; min-height: 300px;">
-              <img :src="post.image_url" :alt="post.caption || 'Post'"
-                class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-              <div class="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-300 pointer-events-none"></div>
-            </div>
-
-            <!-- Post Actions -->
-            <div class="post-actions flex items-center gap-4 mt-3 mb-2">
-              <button @click="toggleLike(post)"
-                class="flex items-center gap-1.5 group/like transition-all duration-200">
-                <i class="bi transition-all duration-200"
-                  :class="post.liked_by_me
-                    ? 'bi-heart-fill text-primary scale-110 like-pop'
-                    : 'bi-heart text-white/40 group-hover/like:text-white/70 group-hover/like:scale-110'">
-                </i>
-                <span class="text-sm font-bold"
-                  :class="post.liked_by_me ? 'text-primary' : 'text-white/50'">
-                  {{ formatK(post.likes_count) }}
-                </span>
-              </button>
-
-              <button @click="$router.push(`/posts/${post.id}`)" class="flex items-center gap-1.5 group/cmt">
-                <i class="bi bi-chat text-xl text-white/40
-                  group-hover/cmt:text-white/70 transition-colors"></i>
-                <span class="text-sm font-bold text-white/50">{{ post.comments_count || 0 }}</span>
-              </button>
-            </div>
-
-            <!-- Caption -->
-            <div v-if="post.caption">
-              <p class="text-sm text-white/65 leading-relaxed">
-                <span class="font-bold text-white mr-1.5 cursor-pointer hover:text-primary transition-colors"
-                  @click="navigateToProfile(post.user?.username)">
-                  {{ post.user?.username || '' }}
-                </span>
-                {{ post.caption }}
-              </p>
-            </div>
-          </article>
+            :style="{ animationDelay: (i * 80) + 'ms' }"
+            @like="toggleLike"
+            @delete="handleDeletePost"
+            @navigate="(id) => $router.push(`/posts/${id}`)"
+            @navigate-profile="navigateToProfile"
+            @edit="(id) => router.push(`/posts/${id}/edit`)"
+          />
 
           <!-- Loading more -->
           <div v-if="loadingMore" class="flex justify-center py-6">
@@ -271,6 +161,9 @@ onUnmounted(() => {
             <i class="bi bi-check-circle-fill text-white/10 mb-2" style="font-size: 2rem"></i>
             <p class="text-white/25 text-xs font-bold tracking-widest">YOU'RE ALL CAUGHT UP</p>
           </div>
+
+          <!-- Sentinel for Infinite Scroll -->
+          <div ref="sentinel" class="h-4 w-full"></div>
         </div>
       </main>
 

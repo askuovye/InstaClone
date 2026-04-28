@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { posts as postsApi, likes as likesApi } from '../services/api'
+import { postService as postsApi } from '../services/post.service'
 import { useAuthStore } from '../stores/auth'
 import PostCommentList from '../components/post/PostCommentList.vue'
 import { storeToRefs } from 'pinia'
@@ -44,8 +44,11 @@ async function toggleLike() {
   post.value.liked_by_me = !wasLiked
   post.value.likes_count += wasLiked ? -1 : 1
   try {
-    if (wasLiked) await likesApi.unlike(post.value.id)
-    else          await likesApi.like(post.value.id)
+    if (wasLiked) {
+      await postsApi.unlike(post.value.id)
+    } else {
+      await postsApi.like(post.value.id)
+    }
   } catch {
     post.value.liked_by_me = wasLiked
     post.value.likes_count += wasLiked ? 1 : -1

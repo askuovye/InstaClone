@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { follow as followApi } from '../services/api'
+import { userService as followApi } from '../services/user.service'
 import AccountCard from '../components/profile/AccountCard.vue'
 
 const route = useRoute()

@@ -3,7 +3,9 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { storeToRefs } from 'pinia'
-import { users, posts, follow } from '../services/api'
+import { userService as usersApi } from '../services/user.service'
+import { useUserPostsStore } from '../stores/userPosts.store'
+import { timeAgo } from '../utils/dates'
 
 import ProfileHeader from '../components/profile/ProfileHeader.vue'
 import ProfileStats from '../components/profile/ProfileStats.vue'
@@ -58,11 +60,14 @@ const profile = ref({
   bannerGradient: 'linear-gradient(135deg, #0a0b10 0%, #0d1a10 40%, #071510 70%, #0a0b10 100%)',
 })
 
-// Posts loaded from API
-const userPosts = ref([])
-const postsPage = ref(1)
-const postsLastPage = ref(1)
-const postsLoading = ref(false)
+const userPostsStore = useUserPostsStore()
+const { 
+  posts: userPosts, 
+  loading: postsLoading, 
+  lastPage: postsLastPage, 
+  currentPage: postsPage,
+  total: postsTotal
+} = storeToRefs(userPostsStore)
 
 // Activity (derived from recent posts)
 const activity = ref([])
@@ -94,9 +99,7 @@ const spanPatterns = ['large', 'tall', 'normal', 'normal', 'wide', 'normal', 'no
 
 const galleryItems = computed(() => {
   return userPosts.value.map((post, i) => ({
-    id: post.id,
-    image_url: post.image_url,
-    caption: post.caption,
+    ...post,
     span: spanPatterns[i % spanPatterns.length],
   }))
 })
@@ -116,7 +119,7 @@ async function loadProfile() {
   isLoading.value = true
 
   try {
-    const userData = await users.getProfile(username)
+    const userData = await usersApi.getProfile(username)
 
     profile.value = {
       ...profile.value,
@@ -151,33 +154,18 @@ async function loadProfile() {
 
 // ─── API: Load posts ──────────────────────────────────────
 async function loadPosts(reset = false) {
-  if (postsLoading.value) return
   if (!profile.value.id) return
 
-  postsLoading.value = true
-
   try {
-    if (reset) {
-      postsPage.value = 1
-      userPosts.value = []
-    }
-
-    const data = await posts.byUser(profile.value.id, postsPage.value)
-
-    if (reset) {
-      userPosts.value = data.data
-    } else {
-      userPosts.value.push(...data.data)
-    }
-
-    postsLastPage.value = data.last_page
-    profile.value.posts_count = data.total
+    await userPostsStore.loadUserPosts(profile.value.id, !reset)
+    
+    profile.value.posts_count = postsTotal.value
 
     // Build activity from recent posts
-    if (reset && data.data.length > 0) {
+    if (reset && userPosts.value.length > 0) {
       const icons = ['upload', 'palette', 'star-fill']
       const colors = ['#4090ff', '#05cc47', '#f0c040']
-      activity.value = data.data.slice(0, 3).map((p, i) => ({
+      activity.value = userPosts.value.slice(0, 3).map((p, i) => ({
         icon: icons[i % 3],
         label: 'Posted',
         link: p.caption ? p.caption.substring(0, 30) : `Post #${p.id}`,
@@ -187,23 +175,19 @@ async function loadPosts(reset = false) {
     }
   } catch (e) {
     console.error('Failed to load posts:', e)
-  } finally {
-    postsLoading.value = false
   }
 }
 
 async function loadMorePosts() {
-  if (postsPage.value >= postsLastPage.value) return
-  postsPage.value++
-  await loadPosts()
+  await loadPosts(false)
 }
 
 // ─── API: Follow counts ──────────────────────────────────
 async function loadFollowCounts(userId) {
   try {
     const [followersData, followingData] = await Promise.all([
-      follow.followers(userId, 1),
-      follow.following(userId, 1),
+      usersApi.followers(userId, 1),
+      usersApi.following(userId, 1),
     ])
     profile.value.followers_count = followersData.total || 0
     profile.value.following_count = followingData.total || 0
@@ -215,8 +199,8 @@ async function loadFollowCounts(userId) {
 // ─── API: Check follow status ────────────────────────────
 async function checkFollowStatus(userId) {
   try {
-    const data = await follow.isFollowing(userId)
-    isWatching.value = data.is_following
+    const data = await usersApi.isFollowing(userId)
+    isWatching.value = data.is_following || data.following
   } catch {
     isWatching.value = false
   }
@@ -228,31 +212,17 @@ async function toggleWatch() {
 
   try {
     if (isWatching.value) {
-      await follow.unfollow(profile.value.id)
+      await usersApi.unfollow(profile.value.id)
       isWatching.value = false
       profile.value.followers_count = Math.max(0, profile.value.followers_count - 1)
     } else {
-      await follow.follow(profile.value.id)
+      await usersApi.follow(profile.value.id)
       isWatching.value = true
       profile.value.followers_count++
     }
   } catch (e) {
     console.error('Follow/unfollow failed:', e)
   }
-}
-
-// ─── Helpers ─────────────────────────────────────────────
-function timeAgo(dateStr) {
-  const now = Date.now()
-  const then = new Date(dateStr).getTime()
-  const seconds = Math.floor((now - then) / 1000)
-  if (seconds < 60) return 'just now'
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
 }
 
 // ─── Counter animation ────────────────────────────────────
@@ -317,6 +287,7 @@ onUnmounted(() => {
 // Re-load when route changes (e.g. navigating to another user's profile)
 watch(profileUsername, () => {
   statsAnimated.value = false
+  userPostsStore.reset()
   loadProfile()
 })
 

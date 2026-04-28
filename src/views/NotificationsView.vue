@@ -4,7 +4,8 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { storeToRefs } from 'pinia'
 import { timeAgo } from '../utils/dates'
-import { notifications as notifApi, follow as followApi } from '../services/api'
+import { notificationService as notifApi } from '../services/notification.service'
+import { userService as followApi } from '../services/user.service'
 import NotificationGroup from '../components/notifications/NotificationGroup.vue'
 const router = useRouter()
 const authStore = useAuthStore()

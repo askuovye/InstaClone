@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { follow as followApi } from '../services/api'
+import { userService as followApi } from '../services/user.service'
 import { useAuthStore } from './auth'
 
 export const useFollowsStore = defineStore('follows', {

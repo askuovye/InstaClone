@@ -1,7 +1,11 @@
 import { defineStore } from 'pinia'
-import { feed as feedApi, posts as postsApi, likes as likesApi } from '../services/api'
+import { postService as postApi } from '../services/post.service'
 import { useAuthStore } from './auth'
+import { useUserPostsStore } from './userPosts.store'
 
+/**
+ * Store for managing the main home feed with cursor-based pagination.
+ */
 export const useFeedStore = defineStore('feed', {
   state: () => ({
     posts: [],
@@ -9,13 +13,16 @@ export const useFeedStore = defineStore('feed', {
     loadingMore: false,
     error: null,
     nextCursor: null,
-    nextPage: 1,
     hasMore: true,
     initialLoad: true,
     feedSource: 'feed' // 'feed' or 'own'
   }),
 
   actions: {
+    /**
+     * Load the home feed. Falls back to own posts if the feed is empty.
+     * @param {boolean} [append=false] Whether to append new posts or refresh the list.
+     */
     async loadFeed(append = false) {
       if (this.loading || this.loadingMore) return
 
@@ -32,14 +39,17 @@ export const useFeedStore = defineStore('feed', {
           const params = { per_page: 10 }
           if (append && this.nextCursor) params.cursor = this.nextCursor
 
-          const data = await feedApi.get(params)
+          const data = await postApi.getFeed(params)
           const newPosts = Array.isArray(data.data) ? data.data : []
 
           if (!append && newPosts.length === 0 && authUser?.id) {
-            // Feed is empty — fall back to user's own posts
+            // Feed is empty — switch to own posts via userPostsStore
             this.feedSource = 'own'
-            this.nextPage = 1
-            await this.loadOwnPosts(false, authUser.id)
+            const userPostsStore = useUserPostsStore()
+            userPostsStore.reset()
+            await userPostsStore.loadUserPosts(authUser.id, false)
+            this.posts = userPostsStore.posts
+            this.hasMore = userPostsStore.hasMore
             return
           }
 
@@ -52,7 +62,11 @@ export const useFeedStore = defineStore('feed', {
           this.nextCursor = data.next_cursor || null
           this.hasMore = !!data.next_cursor
         } else {
-          await this.loadOwnPosts(append, authUser?.id)
+          // Continue loading own posts if already in that mode
+          const userPostsStore = useUserPostsStore()
+          await userPostsStore.loadUserPosts(authUser?.id, append)
+          this.posts = userPostsStore.posts
+          this.hasMore = userPostsStore.hasMore
         }
       } catch (e) {
         console.error('Feed load failed:', e)
@@ -64,27 +78,10 @@ export const useFeedStore = defineStore('feed', {
       }
     },
 
-    async loadOwnPosts(append, userId) {
-      if (!userId) return
-
-      try {
-        const data = await postsApi.byUser(userId, this.nextPage)
-        const newPosts = Array.isArray(data.data) ? data.data : []
-
-        if (append) {
-          this.posts.push(...newPosts)
-        } else {
-          this.posts = newPosts
-        }
-
-        this.hasMore = !!data.next_page_url
-        if (this.hasMore) this.nextPage++
-      } catch (e) {
-        console.error('Own posts load failed:', e)
-        this.error = e.message || 'Failed to load posts'
-      }
-    },
-
+    /**
+     * Optimistically toggle a like on a post in the feed.
+     * @param {number|string} postId 
+     */
     async toggleLike(postId) {
       const post = this.posts.find(p => p.id === postId)
       if (!post) return
@@ -95,9 +92,9 @@ export const useFeedStore = defineStore('feed', {
 
       try {
         if (wasLiked) {
-          await likesApi.unlike(post.id)
+          await postApi.unlike(post.id)
         } else {
-          await likesApi.like(post.id)
+          await postApi.like(post.id)
         }
       } catch (e) {
         // Rollback
@@ -114,7 +111,6 @@ export const useFeedStore = defineStore('feed', {
     reset() {
       this.posts = []
       this.nextCursor = null
-      this.nextPage = 1
       this.hasMore = true
       this.initialLoad = true
       this.feedSource = 'feed'

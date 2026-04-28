@@ -1,12 +1,15 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useIntersectionObserver } from '@vueuse/core'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { storeToRefs } from 'pinia'
-import { feed as feedApi, posts as postsApi, likes as likesApi, users as usersApi } from '../services/api'
+import { postService as postsApi } from '../services/post.service'
+import { userService as usersApi } from '../services/user.service'
 import AccountCard from '../components/profile/AccountCard.vue'
 import ExploreSuggestions from '../components/explore/ExploreSuggestions.vue'
 import { useFollowsStore } from '../stores/follows'
+import PostCard from '../components/post/PostCard.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -16,14 +19,22 @@ const followsStore = useFollowsStore()
 // ─── State ────────────────────────────────────────────────
 const headerIn = ref(false)
 const gridIn = ref(false)
-const hoveredId = ref(null)
 
 const explorePosts = ref([])
+const exploreHasMore = ref(true)
 const isLoading = ref(true)
 const loadError = ref(null)
 
 const suggestedUsers = ref([])
 const isSuggestionsLoading = ref(true)
+
+const sentinel = ref(null)
+
+useIntersectionObserver(sentinel, ([entry]) => {
+  if (entry.isIntersecting && exploreHasMore.value && !isLoading.value && !isSuggestionsLoading.value) {
+    loadExplorePosts(true)
+  }
+})
 
 // Reactive filtered list to hide followed users immediately
 const filteredSuggestions = computed(() => {
@@ -40,75 +51,62 @@ function getSpan(index) {
 }
 
 // ─── Load posts for explore ───────────────────────────────
-async function loadExplorePosts() {
-  isLoading.value = true
+async function loadExplorePosts(append = false) {
+  if (!append) {
+    isLoading.value = true
+    explorePage.value = 1
+    exploreHasMore.value = true
+    gridIn.value = false
+  }
+
   loadError.value = null
-  gridIn.value = false
 
   try {
-    const allPosts = []
+    // Wait for suggestions to be ready, then use their IDs
+    let users = suggestedUsers.value
 
-    // 1) Discover users by searching with common letter pairs (parallel)
-    const queries = ['an', 'er', 'ar', 'in', 'th', 'es', 'te', 'us', 'al', 'or']
-    const discoveredUsers = new Map() // id -> user
+    // If suggestions haven't loaded yet, fetch them directly
+    if (users.length === 0) {
+      const data = await usersApi.suggestions({ limit: 40 })
+      users = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : [])
+      users = users.filter(u => u.id !== authUser.value?.id).slice(0, 8)
+    }
 
-    const searchPromises = queries.map(q =>
-      usersApi.search(q, { per_page: 10 }).catch(() => ({ data: [] }))
+    if (users.length === 0) {
+      explorePosts.value = []
+      exploreHasMore.value = false
+      return
+    }
+
+    // Fetch posts from each user in parallel
+    const results = await Promise.allSettled(
+      users.map(u => postsApi.byUser(u.id, explorePage.value))
     )
-    const searchResults = await Promise.all(searchPromises)
 
-    for (const result of searchResults) {
-      const users = Array.isArray(result.data) ? result.data : []
-      for (const u of users) {
-        if (!discoveredUsers.has(u.id)) {
-          discoveredUsers.set(u.id, u)
-        }
-      }
-    }
+    // Flatten all successful results
+    const newPosts = results
+      .filter(r => r.status === 'fulfilled')
+      .flatMap(r => Array.isArray(r.value?.data) ? r.value.data : [])
 
-    // 2) Fetch posts from each discovered user (parallel, max 15 users)
-    const userList = Array.from(discoveredUsers.values()).slice(0, 15)
-    const postPromises = userList.map(u =>
-      postsApi.byUser(u.id, 1).catch(() => ({ data: [] }))
-    )
-    const postResults = await Promise.all(postPromises)
-
-    for (const result of postResults) {
-      const posts = Array.isArray(result.data) ? result.data : []
-      allPosts.push(...posts)
-    }
-
-    // 3) Also try the feed and own posts as extra sources
-    try {
-      const feedData = await feedApi.get({ per_page: 20 })
-      if (Array.isArray(feedData.data)) allPosts.push(...feedData.data)
-    } catch { /* ok */ }
-
-    if (authUser.value?.id) {
-      try {
-        const ownData = await postsApi.byUser(authUser.value.id, 1)
-        if (Array.isArray(ownData.data)) allPosts.push(...ownData.data)
-      } catch { /* ok */ }
-    }
-
-    // 4) De-duplicate by post id
-    const seen = new Set()
-    const unique = allPosts.filter(p => {
-      if (seen.has(p.id)) return false
-      seen.add(p.id)
-      return true
-    })
-
-    // 5) Shuffle for random feel
-    for (let i = unique.length - 1; i > 0; i--) {
+    // Shuffle for visual variety
+    for (let i = newPosts.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [unique[i], unique[j]] = [unique[j], unique[i]]
+      [newPosts[i], newPosts[j]] = [newPosts[j], newPosts[i]]
     }
 
-    explorePosts.value = unique
+    if (append) {
+      explorePosts.value.push(...newPosts)
+    } else {
+      explorePosts.value = newPosts
+    }
+
+    // Has more if any user had results on this page
+    exploreHasMore.value = newPosts.length > 0
+    if (exploreHasMore.value) explorePage.value++
+
   } catch (e) {
     console.error('Explore load failed:', e)
-    loadError.value = e.message || 'Failed to load posts'
+    if (!append) loadError.value = e.message || 'Failed to load posts'
   } finally {
     isLoading.value = false
   }
@@ -122,9 +120,9 @@ async function toggleLike(post) {
 
   try {
     if (wasLiked) {
-      await likesApi.unlike(post.id)
+      await postsApi.unlike(post.id)
     } else {
-      await likesApi.like(post.id)
+      await postsApi.like(post.id)
     }
   } catch {
     post.liked_by_me = wasLiked
@@ -133,11 +131,6 @@ async function toggleLike(post) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────
-function formatK(n) {
-  if (!n) return '0'
-  return n >= 1000 ? (n / 1000).toFixed(1) + 'K' : n.toString()
-}
-
 function goToProfile(username) {
   if (username) router.push(`/profile/${username}`)
 }
@@ -175,13 +168,9 @@ async function loadSuggestions() {
 // ─── Lifecycle ────────────────────────────────────────────
 onMounted(async () => {
   setTimeout(() => { headerIn.value = true }, 80)
-  
-  // Ensure we have the latest following list before loading suggestions
   await loadFollowingIfNeeded()
-  
-  loadSuggestions()
+  await loadSuggestions()         // await instead of fire-and-forget
   await loadExplorePosts()
-  
   setTimeout(() => { gridIn.value = true }, 200)
 })
 
@@ -264,73 +253,25 @@ async function loadFollowingIfNeeded() {
         <div v-else class="explore-grid"
           :class="gridIn ? 'grid-section-in' : 'grid-section-out'">
 
-          <div
-            v-for="(post, i) in explorePosts" :key="post.id"
-            @click="$router.push(`/posts/${post.id}`)"
-            class="grid-item group cursor-pointer relative overflow-hidden rounded-xl"
+          <PostCard
+            v-for="(post, i) in explorePosts"
+            :key="post.id"
+            :post="post"
+            :is-grid="true"
             :class="[
               `span-${getSpan(i)}`,
               gridIn ? 'item-in' : 'item-out'
             ]"
             :style="{ animationDelay: (i * 50) + 'ms' }"
-            @mouseenter="hoveredId = post.id"
-            @mouseleave="hoveredId = null"
-          >
-            <!-- Post Image -->
-            <div class="absolute inset-0 transition-transform duration-700 group-hover:scale-110">
-              <img v-if="post.image_url" :src="post.image_url"
-                class="w-full h-full object-cover" :alt="post.caption || 'Post'" loading="lazy" />
-              <div v-else class="w-full h-full bg-surface flex items-center justify-center">
-                <i class="bi bi-image text-white/10" style="font-size: 3rem"></i>
-              </div>
-            </div>
+            @like="toggleLike"
+            @navigate="(id) => $router.push(`/posts/${id}`)"
+            @navigate-profile="goToProfile"
+          />
+        </div>
 
-            <!-- Scanline overlay -->
-            <div class="scanlines absolute inset-0 opacity-10 pointer-events-none"></div>
-
-            <!-- Vignette -->
-            <div class="absolute inset-0 pointer-events-none"
-              style="background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.5) 100%)"></div>
-
-            <!-- Hover Overlay -->
-            <Transition name="overlay-fade">
-              <div v-if="hoveredId === post.id"
-                class="absolute inset-0 flex flex-col items-center justify-center gap-3
-                  bg-black/60 backdrop-blur-sm z-10">
-
-                <!-- Like + Comment counts -->
-                <div class="flex items-center gap-6">
-                  <button @click.stop="toggleLike(post)" class="flex items-center gap-2 group/like">
-                    <i class="bi transition-all duration-200"
-                      :class="post.liked_by_me ? 'bi-heart-fill text-primary scale-110' : 'bi-heart text-white group-hover/like:scale-110'">
-                    </i>
-                    <span class="text-sm font-black" :class="post.liked_by_me ? 'text-primary' : 'text-white'">
-                      {{ formatK(post.likes_count) }}
-                    </span>
-                  </button>
-
-                  <div class="flex items-center gap-2">
-                    <i class="bi bi-chat-fill text-2xl text-white"></i>
-                    <span class="text-sm font-black text-white">{{ post.comments_count || 0 }}</span>
-                  </div>
-                </div>
-
-                <!-- Author -->
-                <div class="flex items-center gap-2 mt-1 cursor-pointer hover:opacity-80 transition-opacity"
-                  @click.stop="goToProfile(post.user?.username)">
-                  <div class="w-7 h-7 rounded-full overflow-hidden bg-surface border border-border flex items-center justify-center flex-shrink-0">
-                    <img v-if="post.user?.avatar_url" :src="post.user.avatar_url" class="w-full h-full object-cover" />
-                    <i v-else class="bi bi-person-fill text-white/30 text-sm"></i>
-                  </div>
-                  <span class="text-xs font-bold text-white/80">{{ post.user?.username || 'Unknown' }}</span>
-                </div>
-              </div>
-            </Transition>
-
-            <!-- Corner accent -->
-            <div class="absolute top-0 left-0 w-6 h-0.5 bg-primary/40 transition-all duration-300 group-hover:w-12 group-hover:bg-primary/80"></div>
-            <div class="absolute top-0 left-0 w-0.5 h-6 bg-primary/40 transition-all duration-300 group-hover:h-12 group-hover:bg-primary/80"></div>
-          </div>
+        <!-- Sentinel for Infinite Scroll -->
+        <div ref="sentinel" class="h-10 w-full flex items-center justify-center">
+          <i v-if="isLoading && explorePosts.length > 0" class="bi bi-arrow-repeat text-primary text-2xl animate-spin"></i>
         </div>
       </div>
     </div>

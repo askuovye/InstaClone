@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import { storeToRefs } from 'pinia'
 import { getAuthorDisplayName, getAuthorUsername } from '../../utils/profileUtils'
-import { comments as commentsApi } from '../../services/api'
+import { commentService as commentsApi } from '../../services/comment.service'
 
 const props = defineProps({
   comment: { type: Object, required: true }

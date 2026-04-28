@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { posts } from '../services/api'
+import { postService as postsApi } from '../services/post.service'
 
 const router = useRouter()
 
@@ -84,7 +84,7 @@ async function handleSubmit() {
   fieldErrors.value = {}
 
   try {
-    await posts.create(selectedFile.value, caption.value)
+    await postsApi.create(selectedFile.value, caption.value)
     showToast('Post shared successfully!', 'success')
 
     // Short delay so user sees success toast, then navigate

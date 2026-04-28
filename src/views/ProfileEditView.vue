@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { users } from '../services/api'
+import { userService } from '../services/user.service'
 import { useImageUpload } from '../composables/useImageUpload'
 
 const authStore = useAuthStore()
@@ -45,10 +45,10 @@ async function save() {
   error.value = ''
   try {
     if (selectedFile.value) {
-      await users.uploadAvatar(selectedFile.value)
+      await userService.uploadAvatar(selectedFile.value)
     }
     // Update profile if bio or name changed
-    await users.updateProfile({ name: name.value, bio: bio.value })
+    await userService.updateProfile({ name: name.value, bio: bio.value })
     await authStore.hydrateAuthState() // Refresh auth state
     router.push('/profile')
   } catch (e) {

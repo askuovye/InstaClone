@@ -3,7 +3,8 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { storeToRefs } from 'pinia'
-import { users as usersApi, notifications as notifApi } from '../services/api'
+import { userService as usersApi } from '../services/user.service'
+import { notificationService as notifApi } from '../services/notification.service'
 
 const route = useRoute()
 const router = useRouter()

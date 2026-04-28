@@ -1,4 +1,7 @@
 <script setup>
+import { ref } from 'vue'
+import { useIntersectionObserver } from '@vueuse/core'
+import PostCard from '../post/PostCard.vue'
 const props = defineProps({
   galleryItems: { type: Array, required: true },
   postsLoading: { type: Boolean, default: false },
@@ -9,6 +12,14 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['navigate', 'load-more'])
+
+const sentinel = ref(null)
+
+useIntersectionObserver(sentinel, ([entry]) => {
+  if (entry.isIntersecting && props.postsPage < props.postsLastPage && !props.postsLoading) {
+    emit('load-more')
+  }
+})
 
 function goToPost(id) {
   emit('navigate', `/posts/${id}`)
@@ -34,46 +45,28 @@ function goToPost(id) {
 
     <div v-else class="art-grid"
       :class="showGrid ? 'grid-in' : 'grid-out'">
-      <div v-for="(item, i) in galleryItems" :key="item.id"
-        @click="goToPost(item.id)"
-        class="art-cell group cursor-pointer rounded-xl overflow-hidden relative"
+      <PostCard
+        v-for="(item, i) in galleryItems"
+        :key="item.id"
+        :post="item"
+        :is-grid="true"
         :class="[
+          'art-cell',
           item.span === 'large' ? 'art-large' : '',
           item.span === 'tall' ? 'art-tall' : '',
           item.span === 'wide' ? 'art-wide' : '',
           item.span === 'normal' ? 'art-normal' : '',
+          showGrid ? 'grid-in' : 'grid-out'
         ]"
-        :style="{ animationDelay: (i * 60) + 'ms' }">
-        <!-- Real post image -->
-        <div class="art-bg absolute inset-0 transition-transform duration-500 group-hover:scale-110">
-          <img :src="item.image_url" :alt="item.caption || 'Post'" class="w-full h-full object-cover" />
-        </div>
-
-        <!-- Hover overlay -->
-        <div class="art-overlay absolute inset-0 flex flex-col items-center justify-center
-          opacity-0 group-hover:opacity-100 transition-all duration-300
-          bg-black/60 backdrop-blur-sm">
-          <i class="bi bi-arrows-fullscreen text-white text-3xl mb-2"></i>
-          <span v-if="item.caption" class="text-xs font-bold text-white/60 tracking-wider px-4 text-center line-clamp-2">{{ item.caption }}</span>
-          <span v-else class="text-xs font-bold text-white/60 tracking-wider">VIEW POST</span>
-        </div>
-      </div>
+        :style="{ animationDelay: (i * 60) + 'ms' }"
+        @navigate="(id) => $emit('navigate', `/posts/${id}`)"
+      />
     </div>
 
-    <!-- Load more posts -->
-    <button v-if="postsPage < postsLastPage"
-      @click="$emit('load-more')"
-      :disabled="postsLoading"
-      class="load-more w-full mt-6 py-4 border border-border rounded-xl
-        text-xs font-black tracking-widest text-white/30
-        hover:border-primary/30 hover:text-primary/70 transition-all duration-300
-        flex items-center justify-center gap-2 disabled:opacity-50">
-      <i v-if="postsLoading" class="bi bi-arrow-repeat text-sm animate-spin"></i>
-      <template v-else>
-        <i class="bi bi-chevron-down text-sm"></i>
-        LOAD MORE POSTS
-      </template>
-    </button>
+    <!-- Sentinel for Infinite Scroll -->
+    <div ref="sentinel" class="h-10 w-full flex items-center justify-center mt-6">
+      <i v-if="postsLoading" class="bi bi-arrow-repeat text-primary text-2xl animate-spin"></i>
+    </div>
   </div>
 </template>
 

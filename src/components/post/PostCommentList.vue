@@ -1,7 +1,7 @@
 <script setup>
 import PostCommentItem from './PostCommentItem.vue'
 import PostCommentForm from './PostCommentForm.vue'
-import { comments as commentsApi } from '../../services/api'
+import { commentService as commentsApi } from '../../services/comment.service'
 import { ref, onMounted } from 'vue'
 
 const props = defineProps({
