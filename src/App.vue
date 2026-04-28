@@ -1,43 +1,37 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import TopNavBar from './components/TopNavBar.vue'
-import SideNavBar from './components/SideNavBar.vue'
-import BottomNavBar from './components/BottomNavBar.vue'
+import AuthLayout from './layouts/AuthLayout.vue'
+import AppLayout from './layouts/AppLayout.vue'
 
 const route = useRoute()
-const isStandalone = computed(() => route.meta.hideNavigation)
+const layout = computed(() => {
+  // We use route.meta.requiresGuest to identify auth pages, fallback to AppLayout.
+  if (route.meta.requiresGuest) return AuthLayout
+  // Handle NotFound which has neither, fallback to AuthLayout just in case or AppLayout
+  if (!route.meta.requiresAuth && !route.meta.requiresGuest) return AuthLayout
+  return AppLayout
+})
 </script>
 
 <template>
-  <div v-if="isStandalone" class="h-screen w-full bg-dark text-white">
+  <component :is="layout">
     <router-view v-slot="{ Component }">
       <transition name="fade" mode="out-in">
         <component :is="Component" />
       </transition>
     </router-view>
-  </div>
-
-  <div v-else class="min-h-screen bg-dark text-white flex flex-col md:flex-row pb-16 md:pb-0">
-    <!-- Desktop Side Nav (Hidden on Mobile) -->
-    <SideNavBar class="hidden md:flex flex-col w-64 border-r border-border min-h-screen sticky top-0" />
-
-    <div class="flex-1 flex flex-col w-full">
-      <TopNavBar class="sticky top-0 z-50 glass-panel" />
-      
-      <main class="flex-1 w-full max-w-7xl mx-auto p-4 lg:p-8">
-        <router-view v-slot="{ Component }">
-          <transition name="fade" mode="out-in">
-            <component :is="Component" />
-          </transition>
-        </router-view>
-      </main>
-    </div>
-
-    <!-- Mobile Bottom Nav (Hidden on Desktop) -->
-    <BottomNavBar class="md:hidden fixed bottom-0 w-full z-50 glass-panel border-t border-border" />
-  </div>
+  </component>
 </template>
 
 <style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
 </style>
