@@ -295,17 +295,6 @@ async function loadFollowingIfNeeded() {
           <h1 class="page-title font-black text-3xl tracking-tight">
             DISCOVER
           </h1>
-          <button
-            @click="loadExplorePosts"
-            :disabled="isLoading"
-            class="text-xs font-bold tracking-wider text-primary/60 hover:text-primary transition-colors disabled:opacity-50 flex items-center gap-1"
-          >
-            <i
-              class="bi bi-arrow-repeat text-sm"
-              :class="{ 'animate-spin': isLoading }"
-            ></i>
-            SHUFFLE
-          </button>
         </div>
         <p class="text-xs text-white/25 mt-1">
           Discover posts from the community
