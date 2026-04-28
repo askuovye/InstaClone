@@ -75,6 +75,6 @@ export const userService = {
    * Unfollow a user.
    */
   unfollow(userId) {
-    return http.delete(`/users/${userId}/unfollow`)
+    return http.delete(`/users/${userId}/follow`)
   },
 }

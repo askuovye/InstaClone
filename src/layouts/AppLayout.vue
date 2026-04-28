@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useFollowsStore } from '../stores/follows'
 import { storeToRefs } from 'pinia'
 import { userService as usersApi } from '../services/user.service'
 import { notificationService as notifApi } from '../services/notification.service'
@@ -9,6 +10,7 @@ import { notificationService as notifApi } from '../services/notification.servic
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const followsStore = useFollowsStore()
 const { user: authUser } = storeToRefs(authStore)
 const { logout } = authStore
 
@@ -61,6 +63,11 @@ onMounted(() => {
   fetchUnreadCount()
   // Poll every 60 seconds
   notifPollInterval = setInterval(fetchUnreadCount, 60000)
+
+  // Load global follow state
+  if (authUser.value) {
+    followsStore.loadFollowing(authUser.value.id)
+  }
 })
 
 onUnmounted(() => {

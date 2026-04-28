@@ -74,7 +74,7 @@ export const postService = {
    * Unlike a post.
    */
   unlike(postId) {
-    return http.delete(`/posts/${postId}/unlike`)
+    return http.delete(`/posts/${postId}/like`)
   },
 
   /**

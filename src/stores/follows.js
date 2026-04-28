@@ -19,8 +19,10 @@ export const useFollowsStore = defineStore('follows', {
       if (!currentUserId) return
       try {
         // Fetch a large number or paginate if needed, but for now let's assume one big fetch
-        const data = await followApi.following(currentUserId, 1)
-        const ids = (data.data || data || []).map(u => u.id)
+        const response = await followApi.following(currentUserId, 1)
+        // Laravel paginated collections nest the array in .data
+        const users = response.data || (Array.isArray(response) ? response : [])
+        const ids = users.map(u => u.id)
         this.followingIds = new Set(ids)
       } catch (e) {
         console.error('Failed to load following list:', e)

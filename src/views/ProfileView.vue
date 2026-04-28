@@ -140,6 +140,11 @@ async function loadProfile() {
     // Load followers/following counts
     await loadFollowCounts(userData.id)
 
+    // Trigger tracker animations if already visible
+    if (statsAnimated.value) {
+      animateTrackers()
+    }
+
     // Check follow status if not own profile
     if (!isOwnProfile.value) {
       await checkFollowStatus(userData.id)
@@ -189,8 +194,9 @@ async function loadFollowCounts(userId) {
       usersApi.followers(userId, 1),
       usersApi.following(userId, 1),
     ])
-    profile.value.followers_count = followersData.total || 0
-    profile.value.following_count = followingData.total || 0
+    // Laravel paginated collections nest the total count in meta
+    profile.value.followers_count = followersData.meta?.total ?? followersData.total ?? 0
+    profile.value.following_count = followingData.meta?.total ?? followingData.total ?? 0
   } catch (e) {
     // Counts stay at 0
   }
@@ -249,13 +255,17 @@ function initStatsObserver() {
   statsObserver = new IntersectionObserver(([entry]) => {
     if (entry.isIntersecting && !statsAnimated.value) {
       statsAnimated.value = true
-      animateCounter(profile.value.followers_count, v => animatedWatchers.value = v)
-      animateCounter(profile.value.posts_count, v => animatedDeviations.value = v, 1000)
-      animateCounter(profile.value.following_count, v => animatedViews.value = v, 1500)
+      animateTrackers()
       statsObserver?.disconnect()
     }
   }, { threshold: 0.3 })
   statsObserver.observe(el)
+}
+
+function animateTrackers() {
+  animateCounter(profile.value.followers_count, v => animatedWatchers.value = v)
+  animateCounter(profile.value.posts_count, v => animatedDeviations.value = v, 1000)
+  animateCounter(profile.value.following_count, v => animatedViews.value = v, 1500)
 }
 
 // ─── Staggered mount animations ──────────────────────────

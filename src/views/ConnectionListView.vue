@@ -2,10 +2,14 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { userService as followApi } from '../services/user.service'
+import { useFollowsStore } from '../stores/follows'
+import { useAuthStore } from '../stores/auth'
 import AccountCard from '../components/profile/AccountCard.vue'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
+const followsStore = useFollowsStore()
 
 const type = computed(() => route.params.type)
 const username = computed(() => route.params.username || '') // Assuming we pass it or it's context
@@ -37,7 +41,19 @@ async function fetchConnections() {
       throw new Error('Invalid connection type')
     }
     
+    
     users.value = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : [])
+
+    // Optimization: If this is MY following list, I am definitely following everyone here.
+    // If it's a general list, we initialize based on what the API tells us (if anything).
+    const isMyFollowingList = type.value === 'following' && Number(userId.value) === Number(authStore.user?.id)
+
+    users.value.forEach(u => {
+      const status = isMyFollowingList ? true : u.is_following
+      if (status !== undefined) {
+        followsStore.initializeFollowStatus(u.id, status)
+      }
+    })
   } catch (e) {
     error.value = 'Failed to load connections.'
     console.error(e)
