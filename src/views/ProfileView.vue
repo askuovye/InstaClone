@@ -320,7 +320,7 @@ async function handleAvatarChange(event) {
 
   avatarUploading.value = true
   try {
-    const updatedUser = await users.uploadAvatar(file)
+    const updatedUser = await usersApi.uploadAvatar(file)
     profile.value.avatar_url = updatedUser.avatar_url
     avatarPreview.value = null
 
@@ -356,7 +356,7 @@ function closeEditModal() {
 async function saveBio() {
   bioSaving.value = true
   try {
-    const updatedUser = await users.updateProfile({ bio: editBio.value || null })
+    const updatedUser = await usersApi.updateProfile({ bio: editBio.value || null })
     profile.value.bio = updatedUser.bio || ''
 
     // Save bio locally as JSON

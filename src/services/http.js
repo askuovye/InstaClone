@@ -1,5 +1,4 @@
 import axios from 'axios'
-import router from '../router'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 
@@ -35,8 +34,10 @@ http.interceptors.response.use(
       localStorage.removeItem('instaclone.token')
       localStorage.removeItem('auth_token')
       
-      // Redirect to login via Vue Router to avoid full page reload
-      router.push('/login')
+      // Use dynamic import for router to avoid circular dependencies
+      import('../router').then(m => {
+        m.default.push('/login')
+      })
       
       return Promise.reject(new Error('Unauthorized'))
     }
