@@ -3,3 +3,8 @@ dist
 .env
 .git
 .vscode
+
+# Docker e Compose
+Dockerfile
+compose.yaml
+docker-compose.yaml
